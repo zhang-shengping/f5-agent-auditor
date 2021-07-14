@@ -7,7 +7,7 @@
 检查资源的范围包含：
 
 * `BigIP partiton (Openstack project)`
-* `BigIP vip (Openstack loadbalancer)`  
+* `BigIP vip (Openstack loadbalancer)`
 * `BigIP vs (Openstack listener)`
 * `BigIP pool (Openstack pool)`
 * `BigIP pool mebmer (Openstack pool member)`
@@ -24,7 +24,7 @@
 
 ```bash
 # 从 github 上下载原码
-git clone https://github.com/zhang-shengping/f5-agent-auditor.git -b master
+git clone https://github.com/f5devcentral/f5-agent-auditor.git -b master
 
 # 转到源码目录下
 cd f5-agent-auditor
@@ -37,7 +37,7 @@ sudo python setup.py install
 ## Install from PYPI repository
 
 ```bash
-# 直接从 PYPI 仓库安装 
+# 直接从 PYPI 仓库安装
 [stack@neutron-server-1 ~]$ sudo pip install f5-agent-auditor
 ```
 
