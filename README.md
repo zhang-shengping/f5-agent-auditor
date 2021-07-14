@@ -7,7 +7,7 @@
 检查资源的范围包含：
 
 * `BigIP partiton (Openstack project)`
-* `BigIP vip (Openstack loadbalancer)`  
+* `BigIP vip (Openstack loadbalancer)`
 * `BigIP vs (Openstack listener)`
 * `BigIP pool (Openstack pool)`
 * `BigIP pool mebmer (Openstack pool member)`
@@ -20,24 +20,34 @@
 
 安装方式主要提供从原码安装和使用 `pip` 命令从 `PYPI`库安装。
 
+
+建议 python `setuptools` 模块版本大于 **30.3.0**:
+
+```bash
+# 使用以下任何命令都可以查看 setuptools 版本
+[stack@neutron-server-1 f5-agent-auditor]$ easy_install --version
+setuptools 44.1.1 from /usr/lib/python2.7/site-packages (Python 2.7)
+
+[stack@neutron-server-1 f5-agent-auditor]$ python -m easy_install --version
+setuptools 44.1.1 from /usr/lib/python2.7/site-packages (Python 2.7)
+```
+
 ### Install by source code
 
 ```bash
 # 从 github 上下载原码
-git clone https://github.com/zhang-shengping/f5-agent-auditor.git -b master
+git clone https://github.com/f5devcentral/f5-agent-auditor.git -b master
 
 # 转到源码目录下
 cd f5-agent-auditor
-# 使用 pip 安装
-sudo pip install ./
-# 或者 setup.py 安装，任意一种即可。
+# setup.py 安装。
 sudo python setup.py install
 ```
 
 ## Install from PYPI repository
 
 ```bash
-# 直接从 PYPI 仓库安装 
+# 直接从 PYPI 仓库安装
 [stack@neutron-server-1 ~]$ sudo pip install f5-agent-auditor
 ```
 
