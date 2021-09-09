@@ -61,16 +61,10 @@ class LbaasToBigIP(object):
             self.benchmark.get_projects_on_device()
         self.benchmark_projects = set(projects)
 
-    def get_common_resources_diff(self, bm_method,
+    def get_common_resources_diff(self, bm_resources,
                                   sub_method,
                                   resource_type=None):
-        bm_resources = []
         sub_resources = []
-
-        for project in self.benchmark_projects:
-            bm_resources += bm_method(
-                project
-            )
 
         bm_res = self.benchmark_filter.get_resources(
             bm_resources)
@@ -100,39 +94,64 @@ class LbaasToBigIP(object):
         return diff
 
     def get_missing_loadbalancers(self):
-        bm_method = self.benchmark.get_project_loadbalancers
+        lb_resources = []
+        for project in self.benchmark_projects:
+            lb_resources += self.benchmark.get_agent_project_loadbalancers(
+                project
+            )
         sub_method = self.subject.get_project_loadbalancers
         diff = self.get_common_resources_diff(
-            bm_method, sub_method, "loadbalancer"
+            lb_resources, sub_method, "loadbalancer"
         )
         return diff
 
     def get_missing_listeners(self):
-        bm_method = self.benchmark.get_project_listeners
+        lb_resources = []
+        for project in self.benchmark_projects:
+            lb_resources += self.benchmark.get_agent_project_loadbalancers(
+                project
+            )
+
+        ls_resources = []
+        lb_ids = [lb.id for lb in lb_resources]
+        ls_resources += self.benchmark.get_listeners_by_lb_ids(lb_ids)
+
         sub_method = self.subject.get_project_listeners
         diff = self.get_common_resources_diff(
-            bm_method, sub_method, "listener"
+            ls_resources, sub_method, "listener"
         )
         return diff
 
     def get_missing_pools(self):
-        bm_method = self.benchmark.get_project_pools
+        lb_resources = []
+        for project in self.benchmark_projects:
+            lb_resources += self.benchmark.get_agent_project_loadbalancers(
+                project
+            )
+
+        pl_resources = []
+        lb_ids = [lb.id for lb in lb_resources]
+        pl_resources += self.benchmark.get_pools_by_lb_ids(lb_ids)
+
         sub_method = self.subject.get_project_pools
         diff = self.get_common_resources_diff(
-            bm_method, sub_method, "pool"
+            pl_resources, sub_method, "pool"
         )
         return diff
 
     def get_missing_members(self):
+        bm_lbs = []
         bm_pools = []
         sub_pools = []
         missing_mb = []
 
         for project in self.benchmark_projects:
-            bm_pools += self.benchmark.get_project_pools(
+            bm_lbs += self.benchmark.get_agent_project_loadbalancers(
                 project
             )
 
+        lb_ids =[lb.id for lb in bm_lbs]
+        bm_pools += self.benchmark.get_pools_by_lb_ids(lb_ids)
         bm_mbs = self.benchmark_filter.filter_pool_members(bm_pools)
 
         for project in self.subject_projects:
