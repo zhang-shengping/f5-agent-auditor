@@ -78,7 +78,7 @@ class LbassDBCollector(base.Collector):
         return self.project_cache
 
     @time_logger(LOG)
-    def get_project_loadbalancers(self, project_id):
+    def get_agent_project_loadbalancers(self, project_id):
         LOG.info("Get loadbalancers of project: %s", project_id)
         if project_id not in self.project_cache:
             # project is not exist in cache
@@ -112,6 +112,18 @@ class LbassDBCollector(base.Collector):
         return total_listeners
 
     @time_logger(LOG)
+    def get_listeners_by_lb_ids(self, lb_ids):
+        LOG.info("Get listeners of loadbalancers: %s", lb_ids)
+        ret_listeners = []
+
+        for lb_id in lb_ids:
+          ret_listeners += self.source.get_listeners_by_lb_id(
+              lb_id 
+          )
+
+        return ret_listeners
+
+    @time_logger(LOG)
     def get_project_pools(self, project_id):
         LOG.info("Get pools of project: %s", project_id)
         total_pools = []
@@ -139,6 +151,18 @@ class LbassDBCollector(base.Collector):
         self.set_project_pool_members(project_id)
 
         return total_pools
+
+    @time_logger(LOG)
+    def get_pools_by_lb_ids(self, lb_ids):
+        LOG.info("Get pools of loadbalancers: %s", lb_ids)
+        ret_pools = []
+
+        for lb_id in lb_ids:
+          ret_pools += self.source.get_pools_by_lb_id(
+              lb_id 
+          )
+
+        return ret_pools
 
     @time_logger(LOG)
     def set_project_pool_members(self, project_id):
