@@ -36,6 +36,9 @@ class BigIPFilter(object):
         port = None
         mb = member.get('name')
 
+        if mb == []:
+            return
+
         if "%" in mb:
             mb = mb.split("%")
             address = mb[0]
@@ -62,7 +65,8 @@ class BigIPFilter(object):
             if member_items:
                 for mb in member_items:
                     member = self.format_member(mb)
-                    members.append(member)
+                    if member is not None:
+                        members.append(member)
             pl_id = self.get_id(pl)
             pools[pl_id] = members
         return pools
