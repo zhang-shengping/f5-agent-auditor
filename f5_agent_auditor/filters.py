@@ -13,6 +13,9 @@
 # limitations under the License.
 #
 
+import netaddr
+
+
 class BigIPFilter(object):
 
     def __init__(self, prefix):
@@ -30,31 +33,22 @@ class BigIPFilter(object):
                 ids.append(uuid)
         return set(ids)
 
+    def filter_loadbalancers(self, loadbalancers):
+        balancers = {}
+        for lb in loadbalancers:
+            balancers[self.get_id(lb)] = lb.address
+        return balancers
+
     @staticmethod
     def format_member(member):
-        address = None
-        port = None
+        # address = None
+        # port = None
         mb = member.get('name')
 
         if mb == []:
             return
 
-        if "%" in mb:
-            mb = mb.split("%")
-            address = mb[0]
-            if "." in mb[1]:
-                port = mb[1].split('.')[1]
-            else:
-                port = mb[1].split(":")[1]
-        else:
-            if mb.count(":") > mb.count("."):
-                mb = mb.split('.')
-            else:
-                mb = mb.split(':')
-            address = mb[0]
-            port = mb[1]
-        address_port = address + "_" + str(port)
-        return address_port
+        return mb
 
     def filter_pool_members(self, partition_pools):
         pools = {}
@@ -83,10 +77,18 @@ class LbaasFilter(object):
     @staticmethod
     def format_member(member):
         mb = {}
-        mb['address_port'] = member.address + "_" + str(member.protocol_port)
+
+        addr = member.address.split("%")
+        ip = netaddr.IPAddress(addr[0])
+        if ip.version == 6:
+            mb['address_port'] = member.address + "." + str(member.protocol_port)
+        else:
+            mb['address_port'] = member.address + ":" + str(member.protocol_port)
+
         mb['id'] = member.id
         mb['provisioning_status'] = member.provisioning_status
         mb['project_id'] = member.project_id
+        mb['bigip_ips'] = []
         return mb
 
     def filter_pool_members(self, project_pools):
@@ -109,6 +111,7 @@ class LbaasFilter(object):
         ]
         return res
 
+    # pzhang convert format
     def convert_common_resources(self,
                                  diff_ids,
                                  resources,
@@ -126,6 +129,21 @@ class LbaasFilter(object):
         ]
         return res
 
+    def convert_loadbalancers(self, balancer, bigip_ip):
+        lb = {
+            "resource type": "loadbalancer",
+            "uuid": balancer.id,
+            "provisioning status": balancer.provisioning_status,
+            "project id": balancer.project_id,
+            "detail": {
+                "address": balancer.vip_address,
+            },
+            "IPs on BigIP": bigip_ip
+        }
+
+        return lb
+
+    # pzhang convert format
     def convert_members(self, pool_id, members):
         mbs = [{
             "resource type": "member",
@@ -133,10 +151,8 @@ class LbaasFilter(object):
             "provisioning status": m['provisioning_status'],
             "project id": m["project_id"],
             "pool id": pool_id,
-            "detail": {
-                "address": m['address_port'].split("_")[0],
-                "port": m['address_port'].split("_")[1]
-            }
+            "detail": m['address_port'],
+            "IPs on BigIP":m['bigip_ips']
         } for m in members]
 
         return mbs

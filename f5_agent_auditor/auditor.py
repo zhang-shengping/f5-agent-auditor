@@ -26,6 +26,10 @@ from f5_agent_auditor.utils \
 from oslo_config import cfg
 from oslo_log import log as logging
 
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 
 options.load_options()
 options.parse_options()
@@ -38,6 +42,7 @@ LOG = logging.getLogger(__name__)
 @time_logger(LOG)
 def main():
 
+    LOG.info("Start auditing")
     if conf.f5_agent:
         bigip_filter = BigIPFilter(conf.environment_prefix)
         lbaas_filter = LbaasFilter()
@@ -56,7 +61,7 @@ def main():
             csv_publisher.set_csv_fields(
                 "resource type", "uuid",
                 "provisioning status", "project id",
-                "pool id", "detail"
+                "pool id", "detail", "IPs on BigIP"
             )
 
             missing = []
@@ -72,6 +77,7 @@ def main():
     else:
         raise Exception("Provide an corresponding agent ID "
                         "--f5-agent")
+    LOG.info("Finish auditing")
 
 
 if __name__ == "__main__":
