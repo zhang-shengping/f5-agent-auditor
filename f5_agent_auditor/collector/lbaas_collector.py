@@ -118,7 +118,7 @@ class LbassDBCollector(base.Collector):
 
         for lb_id in lb_ids:
           ret_listeners += self.source.get_listeners_by_lb_id(
-              lb_id 
+              lb_id
           )
 
         return ret_listeners
@@ -159,7 +159,7 @@ class LbassDBCollector(base.Collector):
 
         for lb_id in lb_ids:
           ret_pools += self.source.get_pools_by_lb_id(
-              lb_id 
+              lb_id
           )
 
         return ret_pools

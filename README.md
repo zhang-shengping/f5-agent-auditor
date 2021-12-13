@@ -79,11 +79,12 @@ f5-agent-auditor --config-file /etc/neutron/services/f5/f5-openstack-agent-CORE.
 2. **`--config-file：`**需要指定两个 file，
    1. 一个是 neutron-server 的 `neutron.conf` 配置文件。
    2. 一个是选取的 F5 LBaaS Agent 使用的 `f5-openstack-agent.ini` 配置文件（比如 `f5-openstack-agent-CORE.ini`）。
+3. **`--nodebug: `**不打印 DEBUG LOG
 
 ```bash
 # 将 neutron.conf debug 配置修改为 False，程序运行时可以输出比较简洁的 log，如下：
 
-[stack@neutron-server-1 f5-agent-auditor]$ f5-agent-auditor --config-file /etc/neutron/services/f5/f5-openstack-agent-CORE.ini --config-file /etc/neutron/neutron.conf --f5-agent 1b4e247d-6c79-4d38-949f-91af99b10b2c
+[stack@neutron-server-1 f5-agent-auditor]$ f5-agent-auditor --config-file /etc/neutron/services/f5/f5-openstack-agent-CORE.ini --config-file /etc/neutron/neutron.conf --f5-agent 1b4e247d-6c79-4d38-949f-91af99b10b2c --nodebug
 INFO f5_agent_auditor.collector.lbaas_collector [-] Get projects of agent : 1b4e247d-6c79-4d38-949f-91af99b10b2c in Neutron DB
 INFO f5_agent_auditor.collector.lbaas_collector [-] get_projects_on_device takes 0.000581026077271 seconds
 INFO f5_agent_auditor.collector.bigip_collector [-] Get projects on device 10.145.67.245
