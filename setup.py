@@ -14,8 +14,6 @@ setuptools.setup(
             'f5-agent-auditor = f5_agent_auditor.auditor:main'
         ]
     },
-    # set to not install as a egg
-    zip_safe=False,
     # this works, but packages in setup.cfg not work
     packages=setuptools.find_packages()
 )

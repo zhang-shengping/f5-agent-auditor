@@ -18,34 +18,6 @@ from f5_agent_auditor.db.connection \
 from f5_agent_auditor.db import models
 
 
-def assign_rd_for(attr):
-    def assign_route_domain(func):
-        def warpper(db, *args, **kwargs):
-            ret = func(db, *args, **kwargs)
-            if attr == "loadbalancers":
-                assign_lbs_rd(db, ret)
-            if attr == "pools_members":
-                assign_pools_rd(db, ret)
-            return ret
-        return warpper
-    return assign_route_domain
-
-
-def assign_lbs_rd(db, lbs):
-    for res in lbs:
-        subnet_id = res.subnet_id
-        rd = db.get_rd_by_subnet(subnet_id)
-        res.vip_address = res.vip_address + '%' + str(rd)
-
-
-def assign_pools_rd(db, pools):
-    for pl in pools:
-        for mb in pl.members:
-            subnet_id = mb.subnet_id
-            rd = db.get_rd_by_subnet(subnet_id)
-            mb.address = mb.address + '%' + str(rd)
-
-
 class Queries(object):
 
     def __init__(self):
@@ -57,10 +29,7 @@ class Queries(object):
         self.mn = models.Monitor
         self.mb = models.Member
         self.bindings = models.Loadbalanceragentbindings
-        self.subnet = models.Subnet
-        self.net = models.Network
 
-    @assign_rd_for("loadbalancers")
     def get_loadbalancers_by_agent_id(self, agent_id):
         with Session(self.connection) as se:
             # join is LEFT OUTER JOIN by default
@@ -104,7 +73,6 @@ class Queries(object):
             ret = se.query(self.pl).get(pl_id)
         return ret
 
-    @assign_rd_for("pools_members")
     def get_pools_by_lb_id(self, lb_id):
         with Session(self.connection) as se:
             ret = se.query(self.pl).filter(
@@ -112,7 +80,6 @@ class Queries(object):
             ).all()
         return ret
 
-    @assign_rd_for("pools_members")
     def get_pools_by_project_id(self, pj_id):
         with Session(self.connection) as se:
             ret = se.query(self.pl).filter(
@@ -135,25 +102,4 @@ class Queries(object):
             ret = se.query(self.mb).filter(
                 models.Member.pool_id == pl_id
             ).all()
-        return ret
-
-    def get_net(self, net_id):
-        with Session(self.connection) as se:
-            ret = se.query(self.net).get(
-                net_id)
-        return ret
-
-    def get_subnet(self, subnet_id):
-        with Session(self.connection) as se:
-            ret = se.query(self.subnet).get(
-                subnet_id)
-        return ret
-
-    def get_rd_by_subnet(self, subnet_id):
-        with Session(self.connection) as se:
-            ret = se.query(self.subnet).get(
-                subnet_id
-            )
-            sgement = ret.network.segments[0]
-            ret = sgement.segmentation_id
         return ret
