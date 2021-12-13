@@ -95,37 +95,15 @@ class LbaasToBigIP(object):
 
     def get_missing_loadbalancers(self):
         lb_resources = []
-        sub_resources = []
-        missing = []
-        converted_lb = {}
-
         for project in self.benchmark_projects:
             lb_resources += self.benchmark.get_agent_project_loadbalancers(
                 project
             )
-
-        for project in self.subject_projects:
-            sub_resources += self.subject.get_project_loadbalancers(
-                project
-            )
-
-        bigip_lbs = self.subject_filter.filter_loadbalancers(sub_resources)
-
-        for lb in lb_resources:
-            if lb.id not in bigip_lbs:
-                converted_lb = self.benchmark_filter.convert_loadbalancers(
-                    lb, ""
-                )
-                missing.append(converted_lb)
-            else:
-                bigip_ip = bigip_lbs[lb.id]
-                if lb.vip_address != bigip_ip:
-                    converted_lb = self.benchmark_filter.convert_loadbalancers(
-                        lb, bigip_ip
-                    )
-                    missing.append(converted_lb)
-
-        return missing
+        sub_method = self.subject.get_project_loadbalancers
+        diff = self.get_common_resources_diff(
+            lb_resources, sub_method, "loadbalancer"
+        )
+        return diff
 
     def get_missing_listeners(self):
         lb_resources = []
@@ -172,7 +150,7 @@ class LbaasToBigIP(object):
                 project
             )
 
-        lb_ids = [lb.id for lb in bm_lbs]
+        lb_ids =[lb.id for lb in bm_lbs]
         bm_pools += self.benchmark.get_pools_by_lb_ids(lb_ids)
         bm_mbs = self.benchmark_filter.filter_pool_members(bm_pools)
 
@@ -192,7 +170,6 @@ class LbaasToBigIP(object):
 
             for mb in members:
                 if not mb["address_port"] in sub_mbs[pool_id]:
-                    mb['bigip_ips'] = sub_mbs[pool_id]
                     missing_mb += self.benchmark_filter.convert_members(
                         pool_id, [mb])
 

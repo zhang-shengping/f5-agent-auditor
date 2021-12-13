@@ -19,7 +19,6 @@ from oslo_config import cfg
 
 from sqlalchemy import Column, String, ForeignKey
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import backref
 
 options.load_db_options()
 options.parse_options()
@@ -46,7 +45,6 @@ class Loadbalancer(Base):
 
     project_id = Column("project_id")
     provisioning_status = Column("provisioning_status")
-    subnet_id = Column("vip_subnet_id")
 
 
 class Listener(Base):
@@ -83,34 +81,3 @@ class Member(Base):
     pool_id = Column(String, ForeignKey('lbaas_pools.id'))
 
     provisioning_status = Column("provisioning_status")
-
-
-class Network(Base):
-    __tablename__ = 'networks'
-    __table_args__ = {'autoload': True}
-
-    # subnets = relationship("Subnet", lazy='subquery')
-
-    subnets = relationship("Subnet", backref=backref(
-        "network", lazy='subquery', cascade='delete'))
-
-    # segment_id = Column(String(36), ForeignKey('networksegments.id'))
-
-class Networksegment(Base):
-    __tablename__ = 'networksegments'
-    __table_args__ = {'autoload': True}
-
-    # network_id = Column(String(36),
-                        # ForeignKey('networks.id', ondelete="CASCADE"),
-                        # nullable=False)
-
-    network = relationship("Network", backref=backref(
-        "segments", lazy='subquery', cascade='delete'))
-
-
-class Subnet(Base):
-    __tablename__ = 'subnets'
-    __table_args__ = {'autoload': True}
-
-    network_id = Column(String(36), ForeignKey('networks.id'))
-    # segment_id = Column(String(36), ForeignKey('networksegments.id'))
