@@ -44,6 +44,7 @@ class LbassDBCollector(base.Collector):
     def _cache_agent_lb_by_project_id(self,
                                       lbs,
                                       lb_cache):
+        # NOTE how we get project ids from lbs
         for lb in lbs:
             if lb.project_id not in lb_cache:
                 self.lb_cache[lb.project_id] = [lb]
@@ -87,6 +88,35 @@ class LbassDBCollector(base.Collector):
         # assert or throw error
         loadbalancers = self.lb_cache[project_id]
         return loadbalancers
+
+    @time_logger(LOG)
+    def get_project_net_info(self, project_id):
+        # NOTE how we get project nets from lbs and its info
+        LOG.info("Get project %s all subnets of loadbalancers", project_id)
+        if project_id not in self.project_cache:
+            # project is not exist in cache
+            return dict()
+
+        # assert or throw error
+        loadbalancers = self.lb_cache[project_id]
+
+        subnet_cache = list()
+        net_result = dict()
+
+        for lb in loadbalancers:
+            if lb.subnet_id not in subnet_cache:
+                subnet = self.source.get_subnet(lb.subnet_id)
+                subnet_cache.append(lb.subnet_id)
+
+                if subnet.network.id not in net_result:
+                      net = self.source.get_net(subnet.network.id)
+                      net_result[subnet.network.id] = net
+
+                      for info in net.subnet_infos:
+                          if info.id not in subnet_cache:
+                              subnet_cache.append(info.id)
+
+        return net_result
 
     @time_logger(LOG)
     def get_project_listeners(self, project_id):

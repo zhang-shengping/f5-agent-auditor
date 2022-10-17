@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import copy
 
 class LbaasToBigIP(object):
 
@@ -197,3 +198,166 @@ class LbaasToBigIP(object):
                         pool_id, [mb])
 
         return missing_mb
+
+
+class NetworkLbaasToBigIP(LbaasToBigIP):
+    def __init__(self, benchmark, benchmark_filter):
+        super(NetworkLbaasToBigIP, self).__init__(
+            benchmark, benchmark_filter
+        )
+
+        self.benchmark_nets = self._get_benchmark_nets()
+        self._format_project_net_info()
+
+    def _get_benchmark_nets(self):
+        bm_nets = dict()
+
+        for project_id in self.benchmark_projects:
+            if project_id not in bm_nets:
+                nets = self.benchmark.get_project_net_info(
+                    project_id
+                )
+                bm_nets.update(nets)
+        return bm_nets
+
+    def _format_project_net_info(self):
+        self.project_nets, self.project_subnets, self.project_routes = \
+            self.benchmark_filter.format_project_nets_subnets(
+                self.benchmark_nets
+            )
+
+    def get_project_selfips(self):
+        sub_selfips = dict()
+
+        for project_id in self.benchmark_projects:
+            if project_id not in sub_selfips:
+                selfips = self.subject.get_project_selfips(
+                    project_id
+                )
+                if self.subject.device_name is not "":
+                    separator = self.subject.device_name + "-"
+                # format selfips
+                sub_selfips[
+                    project_id
+                ] = self.subject_filter.format_selfips(
+                    separator, selfips)
+
+        return sub_selfips
+
+    def get_project_rds(self):
+        sub_rds = dict()
+
+        for project_id in self.benchmark_projects:
+            if project_id not in sub_rds:
+                rds = self.subject.get_project_rds(
+                    project_id
+                )
+                # format rds
+                sub_rds[
+                    project_id
+                ] = self.subject_filter.format_rds(rds)
+
+        return sub_rds
+
+    def get_project_vlans(self):
+        sub_vlans = dict()
+
+        for project_id in self.benchmark_projects:
+            if project_id not in sub_vlans:
+                vlans = self.subject.get_project_vlans(
+                    project_id
+                )
+                # format vlans
+                sub_vlans[
+                    project_id
+                ] = self.subject_filter.format_vlans(vlans)
+
+        return sub_vlans
+
+    def get_project_routes(self):
+        sub_routes = dict()
+
+        for project_id in self.benchmark_projects:
+            if project_id not in sub_routes:
+                routes = self.subject.get_project_routes(
+                    project_id
+                )
+                # format routes
+                sub_routes[
+                    project_id
+                ] = self.subject_filter.format_routes(routes)
+
+        return sub_routes
+
+    def _is_dict_res(self, *args):
+        ret = list()
+        for resources in args:
+            ret += [isinstance(res, dict) for res in resources]
+        return all(ret)
+
+    def _find_missing_res(self, lbaas_project_res, bigip_project_res):
+        missing = list()
+        for project_id in lbaas_project_res:
+            if project_id not in bigip_project_res:
+                missing_res = lbaas_project_res[project_id]
+                missing += missing_res.values()
+            else:
+                lbaas_res = lbaas_project_res[project_id]
+                bigip_res = bigip_project_res[project_id]
+                if self._is_dict_res(lbaas_res, bigip_res):
+                    missing_ids = set(lbaas_res.keys()) - set(bigip_res.keys())
+                else:
+                    missing_ids = set(lbaas_res) - set(bigip_res)
+                for indx in missing_ids:
+                    missing.append(lbaas_res[indx])
+        return missing
+
+    def get_missing_selfip(self):
+        if self.project_subnets:
+            subject_selfips = self.get_project_selfips()
+            missing = self._find_missing_res(self.project_subnets,
+                                             subject_selfips)
+        return missing
+
+    def get_missing_route(self):
+        missing = list()
+        if self.project_routes:
+            subject_routes = self.get_project_routes()
+            missing = self._find_missing_res(self.project_routes,
+                                             subject_routes)
+        return missing
+
+    def get_missing_route_domain(self):
+        missing = list()
+        if self.project_nets:
+            subject_rds = self.get_project_rds()
+
+            for project_id in self.project_nets:
+                if project_id not in subject_rds:
+                    for rd in self.project_nets[project_id].values():
+                        tmp = copy.deepcopy(rd)
+                        tmp["resource type"] = "route domain"
+                        missing.append(tmp)
+                else:
+                    lbaas_rds = self.project_nets[project_id]
+                    bigip_rds = subject_rds[project_id]
+                    missing_rd = set(lbaas_rds) - set(bigip_rds)
+                    for rd_idx in missing_rd:
+                        rd = lbaas_rds[rd_idx]
+                        tmp = copy.deepcopy(rd)
+                        tmp["resource type"] = "route domain"
+                        missing.append(tmp)
+                        # if project_id not in missing:
+                            # missing[project_id] = {rd: lbaas_rds[rd]}
+                        # else:
+                            # missing[project_id].update({rd: lbaas_rds[rd]})
+        return missing
+
+    def get_missing_vlan(self):
+        # missing = dict()
+        missing = list()
+        if self.project_nets:
+            subject_vlans = self.get_project_vlans()
+            missing = self._find_missing_res(self.project_nets,
+                                             subject_vlans)
+        return missing

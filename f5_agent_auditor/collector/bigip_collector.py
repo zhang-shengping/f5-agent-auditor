@@ -55,6 +55,7 @@ class BigIPCollector(base.Collector):
     def __init__(self, source, service_adapter):
         self.bigip = source
         self.service_adapter = service_adapter
+        self.device_name = self.get_device_name()
 
         self.partition_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.partition)
@@ -64,6 +65,14 @@ class BigIPCollector(base.Collector):
             resource_helper.ResourceType.virtual)
         self.pool_helper = resource_helper.BigIPResourceHelper(
             resource_helper.ResourceType.pool)
+        self.selfip_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.selfip)
+        self.vlan_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.vlan)
+        self.rd_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.route_domain)
+        self.route_helper = resource_helper.BigIPResourceHelper(
+            resource_helper.ResourceType.route)
 
     @staticmethod
     def convert_member_name(bigip_member_name):
@@ -74,6 +83,13 @@ class BigIPCollector(base.Collector):
             bigip_member_name = address + ":" + port
 
         return bigip_member_name
+
+    def get_device_name(self):
+        devices = self.bigip.tm.cm.devices.get_collection()
+        for dev in devices:
+            if dev.selfDevice == 'true':
+                return dev.name
+        return ""
 
     @time_logger(LOG)
     def get_projects_on_device(self):
@@ -101,3 +117,31 @@ class BigIPCollector(base.Collector):
         folder_name = self.service_adapter.get_folder_name(project_id)
         pools = self.pool_helper.get_resources(self.bigip, folder_name, True)
         return pools
+
+    @time_logger(LOG)
+    def get_project_selfips(self, project_id):
+        LOG.info("Get selfips of project: %s", project_id)
+        folder_name = self.service_adapter.get_folder_name(project_id)
+        selfips = self.selfip_helper.get_resources(self.bigip, folder_name, True)
+        return selfips
+
+    @time_logger(LOG)
+    def get_project_vlans(self, project_id):
+        LOG.info("Get vlans of project: %s", project_id)
+        folder_name = self.service_adapter.get_folder_name(project_id)
+        vlans = self.vlan_helper.get_resources(self.bigip, folder_name, True)
+        return vlans
+
+    @time_logger(LOG)
+    def get_project_rds(self, project_id):
+        LOG.info("Get route domain ids of project: %s", project_id)
+        folder_name = self.service_adapter.get_folder_name(project_id)
+        route_domains = self.rd_helper.get_resources(self.bigip, folder_name, True)
+        return route_domains
+
+    @time_logger(LOG)
+    def get_project_routes(self, project_id):
+        LOG.info("Get routes of project: %s", project_id)
+        folder_name = self.service_adapter.get_folder_name(project_id)
+        routes = self.route_helper.get_resources(self.bigip, folder_name, True)
+        return routes

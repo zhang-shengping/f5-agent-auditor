@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# coding=utf-8
+# Copyright (c) 2016-2018, F5 Networks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +14,7 @@
 #   limitations under the License.
 
 from enum import Enum
-from f5_agent_auditor.utils import \
-    get_filter
+from f5_openstack_agent.lbaasv2.drivers.bigip.utils import get_filter
 
 from oslo_log import log as logging
 
@@ -65,7 +65,12 @@ class ResourceType(Enum):
     sip_monitor = 39
     diameter_monitor = 40
     ftp_profile = 41
-    partition = 42
+    bwc_policy = 42
+    internal_data_group = 43
+    http2_profile = 44
+    websocket_profile = 45
+    route = 46
+    partition = 47
 
 
 class BigIPResourceHelper(object):
@@ -122,7 +127,8 @@ class BigIPResourceHelper(object):
             obj = resource.load(name=name, partition=partition)
             obj.delete()
 
-    def load(self, bigip, name=None, partition=None):
+    def load(self, bigip, name=None, partition=None,
+             expand_subcollections=False):
         u"""Retrieve a BIG-IP resource from a BIG-IP.
 
         Populates a resource object with attributes for instance on a
@@ -134,7 +140,13 @@ class BigIPResourceHelper(object):
         :returns: created or updated resource object.
         """
         resource = self._resource(bigip)
-        return resource.load(name=name, partition=partition)
+        params = {
+            "params": {
+                "expandSubcollections": str(expand_subcollections).lower()
+            }
+        }
+        return resource.load(name=name, partition=partition,
+                             requests_params=params)
 
     def update(self, bigip, model):
         u"""Update a resource (e.g., pool) on a BIG-IP system.
@@ -234,6 +246,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.net.arps.arp,
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains.route_domain,
+            ResourceType.route:
+                lambda bigip: bigip.tm.net.routes.route,
             ResourceType.tunnel:
                 lambda bigip: bigip.tm.net.tunnels.tunnels.tunnel,
             ResourceType.virtual_address:
@@ -267,10 +281,18 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.ltm.persistence.universal,
             ResourceType.http_profile:
                 lambda bigip: bigip.tm.ltm.profile.https.http,
+            ResourceType.http2_profile:
+                lambda bigip: bigip.tm.ltm.profile.http2s.http2,
             ResourceType.ssl_cert_file:
                 lambda bigip: bigip.tm.sys.file.ssl_certs.ssl_cert,
             ResourceType.ftp_profile:
-                lambda bigip: bigip.tm.ltm.profile.ftps.ftp
+                lambda bigip: bigip.tm.ltm.profile.ftps.ftp,
+            ResourceType.bwc_policy:
+                lambda bigip: bigip.tm.net.bwc.policys.policy,
+            ResourceType.internal_data_group:
+                lambda bigip: bigip.tm.ltm.data_group.internals.internal,
+            ResourceType.websocket_profile:
+                lambda bigip: bigip.tm.ltm.profile.websockets.websocket
         }[self.resource_type](bigip)
 
     def _collection(self, bigip):
@@ -301,6 +323,8 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.ltm.rules,
             ResourceType.route_domain:
                 lambda bigip: bigip.tm.net.route_domains,
+            ResourceType.route:
+                lambda bigip: bigip.tm.net.routes,
             ResourceType.vlan:
                 lambda bigip: bigip.tm.net.vlans,
             ResourceType.arp:
@@ -339,10 +363,16 @@ class BigIPResourceHelper(object):
                 lambda bigip: bigip.tm.sys.file.ssl_certs,
             ResourceType.http_profile:
                 lambda bigip: bigip.tm.ltm.profile.https,
+            ResourceType.http2_profile:
+                lambda bigip: bigip.tm.ltm.profile.http2s,
             ResourceType.oneconnect:
                 lambda bigip: bigip.tm.ltm.profile.one_connects,
             ResourceType.partition:
-                lambda bigip: bigip.tm.auth.partitions
+                lambda bigip: bigip.tm.auth.partitions,
+            ResourceType.bwc_policy:
+                lambda bigip: bigip.tm.net.bwc.policys,
+            ResourceType.websocket_profile:
+                lambda bigip: bigip.tm.ltm.profile.websockets
         }
 
         if self.resource_type in collection_map:

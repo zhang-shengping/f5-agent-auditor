@@ -50,7 +50,9 @@ def main():
         lbaas_collector = factory.get_collectors("lbaas", conf)[0]
         bigip_collectors = factory.get_collectors("bigip", conf)
 
-        comp = comparator.LbaasToBigIP(lbaas_collector, lbaas_filter)
+        comp = comparator.NetworkLbaasToBigIP(
+            lbaas_collector, lbaas_filter
+        )
 
         for collector in bigip_collectors:
             comp.compare_to(collector, bigip_filter)
@@ -61,15 +63,18 @@ def main():
             csv_publisher.set_csv_fields(
                 "resource type", "uuid",
                 "provisioning status", "project id",
-                "pool id", "detail", "IPs on BigIP"
+                "pool id", "detail"
             )
-
             missing = []
             missing += comp.get_missing_projects()
             missing += comp.get_missing_loadbalancers()
             missing += comp.get_missing_listeners()
             missing += comp.get_missing_pools()
             missing += comp.get_missing_members()
+            missing += comp.get_missing_selfip()
+            missing += comp.get_missing_route()
+            missing += comp.get_missing_route_domain()
+            missing += comp.get_missing_vlan()
 
             if missing:
                 csv_publisher.publish(*missing)

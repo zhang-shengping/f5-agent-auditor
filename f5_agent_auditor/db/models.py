@@ -89,7 +89,7 @@ class Network(Base):
     __tablename__ = 'networks'
     __table_args__ = {'autoload': True}
 
-    # subnets = relationship("Subnet", lazy='subquery')
+    subnet_infos = relationship("Subnet", lazy='subquery')
 
     subnets = relationship("Subnet", backref=backref(
         "network", lazy='subquery', cascade='delete'))

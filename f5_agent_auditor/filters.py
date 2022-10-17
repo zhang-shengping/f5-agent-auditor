@@ -18,6 +18,43 @@ import netaddr
 
 class BigIPFilter(object):
 
+    @staticmethod
+    def format_selfips(sep, selfips):
+        result = dict()
+
+        for selfip in selfips:
+            subnet_id = selfip.name.split(sep)[1]
+            result[subnet_id] = selfip.address
+
+        return result
+
+    @staticmethod
+    def format_vlans(vlans):
+        result = list()
+
+        for vlan in vlans:
+            result.append(vlan.tag)
+
+        return result
+
+    @staticmethod
+    def format_rds(rds):
+        result = list()
+
+        for rd in rds:
+            result.append(rd.id)
+
+        return result
+
+    @staticmethod
+    def format_routes(routes):
+        result = dict()
+
+        for route in routes:
+            result[route.name] = route.gw
+
+        return result
+
     def __init__(self, prefix):
         self.prefix = prefix + "_"
 
@@ -91,6 +128,105 @@ class LbaasFilter(object):
         mb['bigip_ips'] = []
         return mb
 
+    @staticmethod
+    def format_project_nets_subnets(project_nets):
+
+        # this function use project_nets to resolve
+        # net, subnet and route of each project
+
+        if not project_nets:
+            return dict(), dict(), dict()
+
+        net_ret = dict()
+        subnet_ret = dict()
+        vlan_seg = ""
+        route_ret = dict()
+
+        for net in project_nets.values():
+            if net.project_id not in net_ret:
+                net_ret[net.project_id] = dict()
+
+            net_segs = net_ret[net.project_id]
+            segmenet_id = ""
+            for seg in net.segments:
+                if seg.network_type == "vlan":
+                    segment_id = seg.segmentation_id
+                    net_segs[segment_id] = {
+                        "resource type": "vlan",
+                        "uuid": net.id,
+                        "project id": net.project_id,
+                        "detail": {
+                            "id": net.id,
+                            "project_id": net.project_id,
+                            "name": net.name,
+                            "status": net.status,
+                            "admin_state_up": net.admin_state_up,
+                            "vlan_segment": seg.segmentation_id,
+                            "mtu": net.mtu,
+                            "vlan_transparent": net.vlan_transparent,
+                            "availability_zone_hints": net.availability_zone_hints
+                        }
+                    }
+                    vlan_seg = seg.segmentation_id
+
+            if net.project_id not in subnet_ret:
+                subnet_ret[net.project_id] = dict()
+                route_ret[net.project_id] = dict()
+
+            subnets = subnet_ret[net.project_id]
+            routes = route_ret[net.project_id]
+            gateway_suffix = "_default_route_" + str(vlan_seg)
+
+            for subnet in net.subnet_infos:
+                subnet_detail = {
+                    "id": subnet.id,
+                    "project_id": subnet.project_id,
+                    "name": subnet.name,
+                    "cidr": subnet.cidr,
+                    "gateway_ip": subnet.gateway_ip,
+                    "ip_version": subnet.ip_version,
+                    "network_id": subnet.network_id,
+                    "segment_id": segment_id
+                }
+
+                subnet_info = {
+                    "resource type": "selfip",
+                    "uuid": subnet.id,
+                    "project id": subnet.project_id,
+                    "detail": subnet_detail}
+                subnets[subnet.id] = subnet_info
+
+                # ip_version = netaddr.IPAddress(
+                    # subnet.gateway_ip).version
+                gateway_name = "IPv" + str(
+                    subnet.ip_version) + gateway_suffix
+                routes.update(
+                    {
+                        gateway_name:{
+                            "resource type": "gateway",
+                            "uuid": gateway_name,
+                            "detail": subnet_detail
+                        }
+                    }
+                )
+
+        return net_ret, subnet_ret, route_ret
+
+    @staticmethod
+    def format_routes(routes):
+        if not routes:
+            return list()
+
+    @staticmethod
+    def format_vlans(vlans):
+        if not vlans:
+            return list()
+
+    @staticmethod
+    def format_rds(rds):
+        if not rds:
+            return list()
+
     def filter_pool_members(self, project_pools):
         pools = {}
         for pl in project_pools:
@@ -138,7 +274,6 @@ class LbaasFilter(object):
             "detail": {
                 "address": balancer.vip_address,
             },
-            "IPs on BigIP": bigip_ip
         }
 
         return lb
@@ -152,7 +287,6 @@ class LbaasFilter(object):
             "project id": m["project_id"],
             "pool id": pool_id,
             "detail": m['address_port'],
-            "IPs on BigIP":m['bigip_ips']
         } for m in members]
 
         return mbs
