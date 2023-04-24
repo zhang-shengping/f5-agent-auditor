@@ -15,6 +15,7 @@
 
 import csv
 import os
+import time
 
 
 class CSVPublisher(object):
@@ -23,8 +24,9 @@ class CSVPublisher(object):
         self.filepath = None
 
     def set_filepath(self, filename):
+        timestr = time.strftime("%Y%m%d-%H%M%S")
         self.filepath = "/tmp/check_" + str(
-           filename) + ".csv"
+           filename) + "_" + timestr + ".csv"
 
     def set_csv_fields(self, *args):
         self.fields = args
