@@ -155,5 +155,10 @@ class Queries(object):
                 subnet_id
             )
             sgement = ret.network.segments[0]
-            ret = sgement.segmentation_id
-        return ret
+
+            # vxlan and vlan both exist
+            for seg in ret.network.segments:
+                if seg.network_type == "vlan":
+                    return seg.segmentation_id
+
+        return sgement.segmentation_id
