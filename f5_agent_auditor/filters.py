@@ -147,7 +147,7 @@ class LbaasFilter(object):
                 net_ret[net.project_id] = dict()
 
             net_segs = net_ret[net.project_id]
-            segmenet_id = ""
+            segment_id = ""
             for seg in net.segments:
                 if seg.network_type == "vlan":
                     segment_id = seg.segmentation_id
