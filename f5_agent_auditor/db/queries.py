@@ -24,8 +24,10 @@ def assign_rd_for(attr):
             ret = func(db, *args, **kwargs)
             if attr == "loadbalancers":
                 assign_lbs_rd(db, ret)
-            if attr == "pools_members":
+            if attr == "l2_members":
                 assign_pools_rd(db, ret)
+            if attr == "l3_members":
+                assign_pools_rd_l3(db, ret)
             return ret
         return warpper
     return assign_route_domain
@@ -43,6 +45,15 @@ def assign_pools_rd(db, pools):
         for mb in pl.members:
             subnet_id = mb.subnet_id
             rd = db.get_rd_by_subnet(subnet_id)
+            mb.address = mb.address + '%' + str(rd)
+
+
+def assign_pools_rd_l3(db, pools):
+    for pl in pools:
+        lb_id = pl.loadbalancer_id
+        rd = db.get_rd_by_lb(lb_id)
+        for mb in pl.members:
+            subnet_id = mb.subnet_id
             mb.address = mb.address + '%' + str(rd)
 
 
@@ -104,7 +115,8 @@ class Queries(object):
             ret = se.query(self.pl).get(pl_id)
         return ret
 
-    @assign_rd_for("pools_members")
+    # @assign_rd_for("l2_members")
+    @assign_rd_for("l3_members")
     def get_pools_by_lb_id(self, lb_id):
         with Session(self.connection) as se:
             ret = se.query(self.pl).filter(
@@ -112,7 +124,8 @@ class Queries(object):
             ).all()
         return ret
 
-    @assign_rd_for("pools_members")
+    # @assign_rd_for("l2_members")
+    @assign_rd_for("l3_members")
     def get_pools_by_project_id(self, pj_id):
         with Session(self.connection) as se:
             ret = se.query(self.pl).filter(
@@ -162,3 +175,8 @@ class Queries(object):
                     return seg.segmentation_id
 
         return sgement.segmentation_id
+
+    def get_rd_by_lb(self, lb_id):
+        lb = self.get_loadbalancer(lb_id)
+        rd = self.get_rd_by_subnet(lb.subnet_id)
+        return rd
