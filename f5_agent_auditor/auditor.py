@@ -23,7 +23,6 @@ from f5_agent_auditor.publishers.csv_publisher import \
 from f5_agent_auditor.utils \
     import time_logger
 
-from oslo_config import cfg
 from oslo_log import log as logging
 
 import requests
@@ -31,10 +30,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-options.load_options()
-options.parse_options()
-conf = cfg.CONF
-
+conf = options.cfg.CONF
 logging.setup(conf, __name__)
 LOG = logging.getLogger(__name__)
 
@@ -71,10 +67,13 @@ def main():
             missing += comp.get_missing_listeners()
             missing += comp.get_missing_pools()
             missing += comp.get_missing_members()
+
+            # only check vlan, selfip, route of lbs (L3)
             missing += comp.get_missing_selfip()
-            missing += comp.get_missing_route()
             missing += comp.get_missing_route_domain()
             missing += comp.get_missing_vlan()
+            if conf.net == "L3":
+                missing += comp.get_missing_route()
 
             if missing:
                 csv_publisher.publish(*missing)

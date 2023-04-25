@@ -16,6 +16,10 @@
 from f5_agent_auditor.db.connection \
     import Session
 from f5_agent_auditor.db import models
+from f5_agent_auditor import options
+
+conf = options.cfg.CONF
+NET = conf.net
 
 
 def assign_rd_for(attr):
@@ -24,9 +28,9 @@ def assign_rd_for(attr):
             ret = func(db, *args, **kwargs)
             if attr == "loadbalancers":
                 assign_lbs_rd(db, ret)
-            if attr == "l2_members":
+            if attr == "L2":
                 assign_pools_rd(db, ret)
-            if attr == "l3_members":
+            if attr == "L3":
                 assign_pools_rd_l3(db, ret)
             return ret
         return warpper
@@ -115,8 +119,9 @@ class Queries(object):
             ret = se.query(self.pl).get(pl_id)
         return ret
 
-    # @assign_rd_for("l2_members")
-    @assign_rd_for("l3_members")
+    # @assign_rd_for("L2")
+    # @assign_rd_for("L3")
+    @assign_rd_for(NET)
     def get_pools_by_lb_id(self, lb_id):
         with Session(self.connection) as se:
             ret = se.query(self.pl).filter(
@@ -124,8 +129,9 @@ class Queries(object):
             ).all()
         return ret
 
-    # @assign_rd_for("l2_members")
-    @assign_rd_for("l3_members")
+    # @assign_rd_for("L2")
+    # @assign_rd_for("L3")
+    @assign_rd_for(NET)
     def get_pools_by_project_id(self, pj_id):
         with Session(self.connection) as se:
             ret = se.query(self.pl).filter(
