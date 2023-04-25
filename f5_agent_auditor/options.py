@@ -25,7 +25,10 @@ tool_opts = [
     cfg.StrOpt("f5-agent",
                short="ag",
                default=None,
-               help=("Provide an ID of an agent"))
+               help=("Provide an ID of an agent")),
+    cfg.StrOpt("net",
+               default="L3",
+               help=("Member is L2 or L3"))
 ]
 
 cfg.CONF.register_cli_opts(tool_opts)
@@ -44,3 +47,6 @@ def parse_options(args=sys.argv[1:],
                   conf=cfg.CONF,
                   project="f5-agent-auditor"):
     conf(args, project)
+
+load_options()
+parse_options()
