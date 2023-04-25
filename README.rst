@@ -20,13 +20,20 @@ Description:
 
 -  ``BigIP pool mebmer (Openstack pool member)``
 
--  ``BigIP selfip``
+检查 loadbalancer 资源关联的:
 
--  ``BigIP gateway``
+-  ``BigIP selfip``
 
 -  ``BigIP vlan``
 
 -  ``BigIP route domain``
+
+命令 ``默认`` 或者带有 ``--net "L3"`` 情况下检查 gateway 和 L3 的 member.
+在命令带 ``--net "L2"`` 情况下不检查 gateway，只检查 L2 的 member.
+
+-  ``BigIP gateway``
+
+-  ``BigIP pool mebmer (Openstack pool member)``
 
 检查级别：
 
@@ -103,7 +110,7 @@ Execution
 .. code:: bash
 
    # 运行如下命令。
-   f5-agent-auditor --config-file /etc/neutron/services/f5/f5-openstack-agent-CORE.ini --config-file /etc/neutron/neutron.conf --f5-agent 1b4e247d-6c79-4d38-949f-91af99b10b2c
+   f5-agent-auditor --config-file /etc/neutron/services/f5/f5-openstack-agent-CORE.ini --config-file /etc/neutron/neutron.conf --net "L2" --f5-agent 1b4e247d-6c79-4d38-949f-91af99b10b2c
 
 1. ``--f5-agent:``\ 指定需要检查审计的 ``F5 LBaaS Agent UUID``,
    Openstack admin 用户可以使用 ``neutron agent-list`` 查看。
@@ -114,6 +121,8 @@ Execution
       配置文件（比如 ``f5-openstack-agent-CORE.ini``\ ）。
 
 3. ``--nodebug:``\ 不打印 DEBUG LOG
+
+4. ``--net:``\ 选择检查 "L2" 或者 "L3" 模式的 member / gateway。
 
 .. code:: bash
 
