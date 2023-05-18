@@ -3,7 +3,6 @@
 import setuptools
 
 setuptools.setup(
-    install_requires=['f5-openstack-agent>=9.6.0'],
 
     # if setuptools (easy_install) version is less than
     # setuptools 30.3.0, the setup.cfg file would work.
