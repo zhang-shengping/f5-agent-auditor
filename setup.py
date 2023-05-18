@@ -19,7 +19,6 @@ def get_version(rel_path):
         raise RuntimeError("Unable to find version string.")
 
 setuptools.setup(
-    install_requires=['f5-openstack-agent>=9.6.0'],
 
     # if setuptools (easy_install) version is less than
     # setuptools 30.3.0, the setup.cfg file would work.
