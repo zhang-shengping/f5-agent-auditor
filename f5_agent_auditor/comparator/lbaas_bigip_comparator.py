@@ -312,8 +312,10 @@ class NetworkLbaasToBigIP(LbaasToBigIP):
                     missing.append(lbaas_res[indx])
         return missing
 
+    # check bigp ip selfip
     def get_missing_selfip(self):
         if self.project_subnets:
+            # bigip partition's selfip
             subject_selfips = self.get_project_selfips()
             missing = self._find_missing_res(self.project_subnets,
                                              subject_selfips)
@@ -360,4 +362,41 @@ class NetworkLbaasToBigIP(LbaasToBigIP):
             subject_vlans = self.get_project_vlans()
             missing = self._find_missing_res(self.project_nets,
                                              subject_vlans)
+        return missing
+
+
+    # check neutron selfip port
+    def get_missing_selfip_port(self):
+
+        missing = list()
+        checked = set() 
+
+        # benchmark is neutron db
+        for project in self.benchmark_projects:
+
+            lb_resources = list()
+            lb_resources = self.benchmark.get_agent_project_loadbalancers(
+                project
+            )
+
+            # subject is bigip device
+            prefix = "local-" + self.subject.device_name + "-"
+
+            for lb in lb_resources:
+                if lb.subnet_id in checked:
+                    continue
+
+                checked.add(lb.subnet_id) 
+                port_name = prefix + lb.subnet_id
+                port = self.benchmark.get_selfip_port(port_name)
+
+                if not port:
+                    lb = lb.__dict__
+
+                    # for convert to json file
+                    if '_sa_instance_state' in lb:
+                        lb.pop('_sa_instance_state')
+
+                    missing.append({port_name: lb}) 
+
         return missing

@@ -36,11 +36,17 @@ def get_collectors(collector_type, conf):
     elif collector_type == "bigip":
         service_adapter = ServiceModelAdapter(conf)
         ips = conf.icontrol_hostname
+
+        # for test based on 9.10
+        # icontrol_password = "admin@f5.com"
+        # ips = "10.145.70.4"
+       
         hostnames = parse_hostnames(ips)
 
         for hostname in hostnames:
             source = bigip_collector.BigIPSource(
                 hostname, conf.icontrol_username, conf.icontrol_password
+                # hostname, "admin", icontrol_password
             )
             collector[hostname] = bigip_collector.BigIPCollector(
                 source.connection,

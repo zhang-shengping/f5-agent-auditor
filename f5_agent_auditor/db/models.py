@@ -114,3 +114,7 @@ class Subnet(Base):
 
     network_id = Column(String(36), ForeignKey('networks.id'))
     # segment_id = Column(String(36), ForeignKey('networksegments.id'))
+
+class Port(Base):
+    __tablename__ = 'ports'
+    __table_args__ = {'autoload': True}

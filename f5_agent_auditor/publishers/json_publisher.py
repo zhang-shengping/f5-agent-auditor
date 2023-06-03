@@ -15,18 +15,15 @@
 
 import json
 import os
-import shutil
+import time
 
 
 class FilePublisher(object):
 
-    def __init__(self, dirctory):
-        self.path = "/tmp/check_" + str(dirctory)
-        if os.path.isdir(self.path):
-            shutil.rmtree(self.path)
-        os.mkdir(self.path)
+    def __init__(self, filename):
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        self.path = "/tmp/check_" + filename + "_" + timestr
 
-    def publish(self, filename, context):
-        file_path = self.path + "/" + filename
-        with open(file_path, 'a') as f:
-            json.dump(context, f, indent=2, sort_keys=True)
+    def publish(self, content):
+        with open(self.path, 'a') as f:
+            json.dump(content, f, indent=2, sort_keys=True)

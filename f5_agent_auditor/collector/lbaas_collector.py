@@ -211,3 +211,7 @@ class LbassDBCollector(base.Collector):
             pool_configured_members = self.source.get_members_by_pool_id(pl.id)
             # maybe use it this way: pl["members"]
             pl.members = pool_configured_members
+
+    def get_selfip_port(self, port_name):
+        port = self.source.get_port_by_name(port_name)
+        return port 

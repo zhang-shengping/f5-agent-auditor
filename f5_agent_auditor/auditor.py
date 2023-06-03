@@ -20,6 +20,8 @@ from f5_agent_auditor.filters import LbaasFilter
 from f5_agent_auditor import options
 from f5_agent_auditor.publishers.csv_publisher import \
     CSVPublisher
+from f5_agent_auditor.publishers.json_publisher import \
+    FilePublisher
 from f5_agent_auditor.utils \
     import time_logger
 
@@ -53,14 +55,16 @@ def main():
         for collector in bigip_collectors:
             comp.compare_to(collector, bigip_filter)
 
-            hostname = collector.keys()[0]
-            csv_publisher = CSVPublisher()
-            csv_publisher.set_filepath(hostname)
-            csv_publisher.set_csv_fields(
-                "resource type", "uuid",
-                "provisioning status", "project id",
-                "pool id", "detail"
-            )
+            missing_selfip_port = []
+            missing_selfip_port += comp.get_missing_selfip_port()
+
+            if missing_selfip_port:
+                hostname = collector.keys()[0]
+                name = hostname + "_selfip-port"
+
+                file_publisher = FilePublisher(name)
+                file_publisher.publish(missing_selfip_port)
+              
             missing = []
             missing += comp.get_missing_projects()
             missing += comp.get_missing_loadbalancers()
@@ -76,6 +80,14 @@ def main():
                 missing += comp.get_missing_route()
 
             if missing:
+                csv_publisher = CSVPublisher()
+                hostname = collector.keys()[0]
+                csv_publisher.set_filepath(hostname)
+                csv_publisher.set_csv_fields(
+                    "resource type", "uuid",
+                    "provisioning status", "project id",
+                    "pool id", "detail"
+                )
                 csv_publisher.publish(*missing)
 
     else:

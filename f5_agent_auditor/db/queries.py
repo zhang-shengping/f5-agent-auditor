@@ -74,6 +74,7 @@ class Queries(object):
         self.bindings = models.Loadbalanceragentbindings
         self.subnet = models.Subnet
         self.net = models.Network
+        self.port =  models.Port
 
     @assign_rd_for("loadbalancers")
     def get_loadbalancers_by_agent_id(self, agent_id):
@@ -119,8 +120,6 @@ class Queries(object):
             ret = se.query(self.pl).get(pl_id)
         return ret
 
-    # @assign_rd_for("L2")
-    # @assign_rd_for("L3")
     @assign_rd_for(NET)
     def get_pools_by_lb_id(self, lb_id):
         with Session(self.connection) as se:
@@ -129,8 +128,6 @@ class Queries(object):
             ).all()
         return ret
 
-    # @assign_rd_for("L2")
-    # @assign_rd_for("L3")
     @assign_rd_for(NET)
     def get_pools_by_project_id(self, pj_id):
         with Session(self.connection) as se:
@@ -186,3 +183,10 @@ class Queries(object):
         lb = self.get_loadbalancer(lb_id)
         rd = self.get_rd_by_subnet(lb.subnet_id)
         return rd
+
+    def get_port_by_name(self, name):
+        with Session(self.connection) as se:
+            ret = se.query(self.port).filter(
+                models.Port.name == name
+            ).all()
+        return ret
