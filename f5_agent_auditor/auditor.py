@@ -55,17 +55,27 @@ def main():
         for collector in bigip_collectors:
             comp.compare_to(collector, bigip_filter)
 
-            missing_selfip_port = []
-            missing_selfip_port += comp.get_missing_selfip_port()
+            # only check vlan, selfip, route of lbs (L3)
+            if conf.net == "L2":
+                missing_port = list()
+                missing_selfip = list()
+                missing_port, missing_selfip = comp.get_missing_selfip_port()
 
-            if missing_selfip_port:
-                hostname = collector.keys()[0]
-                name = hostname + "_selfip-port"
+                if missing_port:
+                    hostname = collector.keys()[0]
+                    name = hostname + "_NEUTRON-PORT"
 
-                file_publisher = FilePublisher(name)
-                file_publisher.publish(missing_selfip_port)
+                    file_publisher = FilePublisher(name)
+                    file_publisher.publish(missing_port)
+
+                if missing_selfip:
+                    hostname = collector.keys()[0]
+                    name = hostname + "_BIGIP-PORT"
+
+                    file_publisher = FilePublisher(name)
+                    file_publisher.publish(missing_selfip)
               
-            missing = []
+            missing = list()
             missing += comp.get_missing_projects()
             missing += comp.get_missing_loadbalancers()
             missing += comp.get_missing_listeners()
@@ -73,11 +83,11 @@ def main():
             missing += comp.get_missing_members()
 
             # only check vlan, selfip, route of lbs (L3)
-            missing += comp.get_missing_selfip()
-            missing += comp.get_missing_route_domain()
-            missing += comp.get_missing_vlan()
             if conf.net == "L3":
+                missing += comp.get_missing_selfip()
                 missing += comp.get_missing_route()
+                missing += comp.get_missing_route_domain()
+                missing += comp.get_missing_vlan()
 
             if missing:
                 csv_publisher = CSVPublisher()

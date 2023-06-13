@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from icontrol.exceptions import iControlUnexpectedHTTPError
 import copy
 
 class LbaasToBigIP(object):
@@ -314,6 +315,7 @@ class NetworkLbaasToBigIP(LbaasToBigIP):
 
     # check bigp ip selfip
     def get_missing_selfip(self):
+        missing = list()
         if self.project_subnets:
             # bigip partition's selfip
             subject_selfips = self.get_project_selfips()
@@ -368,11 +370,22 @@ class NetworkLbaasToBigIP(LbaasToBigIP):
     # check neutron selfip port
     def get_missing_selfip_port(self):
 
-        missing = list()
+        missing_port = list()
+        missing_selfip = list()
+
         checked = set() 
 
         # benchmark is neutron db
         for project in self.benchmark_projects:
+
+            bigip_selfips = list()
+            try:
+                bigip_selfips = self.subject.get_project_selfips(project)
+            except iControlUnexpectedHTTPError as ex:
+                if ex.response.status_code != 400:
+                    raise ex
+                    
+            bigip_selfips_name = [ip.name for ip in bigip_selfips] 
 
             lb_resources = list()
             lb_resources = self.benchmark.get_agent_project_loadbalancers(
@@ -388,8 +401,13 @@ class NetworkLbaasToBigIP(LbaasToBigIP):
 
                 checked.add(lb.subnet_id) 
                 port_name = prefix + lb.subnet_id
-                port = self.benchmark.get_selfip_port(port_name)
 
+                # check if port on device_name bigip
+                if port_name not in bigip_selfips_name:
+                    missing_selfip.append(port_name)
+
+                # check if port in neutron db
+                port = self.benchmark.get_selfip_port(port_name)
                 if not port:
                     lb = lb.__dict__
 
@@ -397,6 +415,6 @@ class NetworkLbaasToBigIP(LbaasToBigIP):
                     if '_sa_instance_state' in lb:
                         lb.pop('_sa_instance_state')
 
-                    missing.append({port_name: lb}) 
+                    missing_port.append({port_name: lb}) 
 
-        return missing
+        return missing_port, missing_selfip
