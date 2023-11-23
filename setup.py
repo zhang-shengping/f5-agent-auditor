@@ -33,5 +33,6 @@ setuptools.setup(
     # set to not install as a egg
     zip_safe=False,
     # this works, but packages in setup.cfg not work
-    packages=setuptools.find_packages()
+    packages=setuptools.find_packages(),
+    package_data={'f5_agent_auditor': ['templates/*.tmpl']}
 )

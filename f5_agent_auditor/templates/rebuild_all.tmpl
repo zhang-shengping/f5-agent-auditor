@@ -1,0 +1,43 @@
+#!/bin/bash
+
+wait_until_loadbalancer () {
+  local LB=$1
+  local EXPECTED_STATUS=$2
+  local STATUS="unknown"
+  local timeout=60
+
+  while [[ $STATUS != $EXPECTED_STATUS ]] && [[ $timeout -gt 0 ]] ; do
+    STATUS=$(neutron lbaas-loadbalancer-show $LB | grep provisioning_status | awk '{ print $4 }')
+    if [[ $STATUS == "ERROR" ]] ; then
+      echo "$(date): loadbalancer $LB is in $STATUS state"
+      return 1
+    fi
+    if [[ $STATUS != $EXPECTED_STATUS ]] ; then
+      sleep 1
+      ((timeout=timeout-1))
+    else
+      echo "$(date): loadbalancer $LB is in $STATUS state"
+      break
+    fi
+  done
+
+  if [[ $timeout -lt 0 ]]; then
+      echo "$(date): loadbalancer $LB rebuild timeout"
+  fi
+}
+
+source {{ rcfile }}
+
+logfile=/tmp/rebuild_$(date +%Y%m%d_%H%M%S).log
+
+rm -rf $logfile
+touch $logfile
+
+{% for lb in loadbalancers %}
+
+{% if lb.id is not none %}
+neutron lbaas-loadbalancer-rebuild --all {{ lb.id }}
+wait_until_loadbalancer {{ lb.id }} ACTIVE >> $logfile
+{% endif %}
+
+{% endfor %}

@@ -14,6 +14,7 @@
 #
 
 from distutils.version import LooseVersion
+import netaddr
 import time
 
 
@@ -38,3 +39,70 @@ def get_filter(bigip, key, op, value):
         return '$filter=%s+%s+%s' % (key, op, value)
     else:
         return {'$filter': '%s %s %s' % (key, op, value)}
+
+
+def get_vlan_segid(vtep_ip, net):
+    ret = None
+
+    segs = net["segments"]
+    seg = segs.get(vtep_ip)
+
+    if not seg:
+        seg = segs.values()[0]
+
+    net_type = seg.get("network_type")
+    if net_type != "vlan":
+        raise Exception(
+            "Cannot find segment id in network %s" % net
+        )
+    ret = seg.get("segmentation_id")
+
+    return ret
+
+
+def partition_name(prefix, project_id):
+    return prefix + '_' + project_id
+
+
+def vlan_name(seg_id):
+    return 'vlan-' + str(seg_id)
+
+
+def rd_name(prefix, net_id):
+    return prefix + '_' + net_id
+
+
+def selfip_name(device_name, subnet_id):
+    return 'local-' + device_name + '-' + subnet_id
+
+
+def gatewy_name(addr, seg_id):
+    version = netaddr.IPAddress(addr).version
+    seg_id = str(seg_id)
+    if version == 4:
+        return "IPv4_default_route_" + seg_id
+    if version == 6:
+        return "IPv6_default_route_" + seg_id
+
+
+def res_name(prefix, res_id):
+    return prefix + '_' + res_id
+
+
+def remove_prefix(name):
+    res_id = name.split("_")[1]
+    return res_id
+
+
+def get_project_ids(partitions):
+    return [remove_prefix(name) for name in partitions]
+
+
+def timestamp_filename(name):
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    return name + "_" + timestr
+
+
+def timestamp_bash(name):
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    return name + "_" + timestr + ".sh"

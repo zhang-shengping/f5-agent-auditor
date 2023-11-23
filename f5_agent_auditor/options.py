@@ -17,25 +17,20 @@ from oslo_config import cfg
 import sys
 
 # require f5 agent is installed
-import f5_openstack_agent.lbaasv2.drivers.bigip.agent_manager as manager
+from f5_openstack_agent.lbaasv2.drivers.bigip import opts
 from f5_openstack_agent.lbaasv2.drivers.bigip import icontrol_driver
 from oslo_db import options
 
 tool_opts = [
-    cfg.StrOpt("f5-agent",
-               short="ag",
-               default=None,
-               help=("Provide an ID of an agent")),
-    cfg.StrOpt("net",
-               default="L3",
-               help=("Member is L2 or L3"))
+    cfg.StrOpt("rcfile-path", required=True),
+    cfg.BoolOpt("rebuild", default=False)
 ]
 
 cfg.CONF.register_cli_opts(tool_opts)
 
 
 def load_options(conf=cfg.CONF):
-    conf.register_opts(manager.OPTS)
+    conf.register_opts(opts.OPTS)
     conf.register_opts(icontrol_driver.OPTS)
 
 
@@ -45,8 +40,10 @@ def load_db_options(conf=cfg.CONF):
 
 def parse_options(args=sys.argv[1:],
                   conf=cfg.CONF,
-                  project="f5-agent-auditor"):
+                  project="f5-lbaas-auditor"):
     conf(args, project)
 
+
+load_db_options()
 load_options()
 parse_options()
