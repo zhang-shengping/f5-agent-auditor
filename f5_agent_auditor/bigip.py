@@ -163,13 +163,20 @@ class BigipResource(object):
         return ret
 
     def download_file(self, src, dst):
-        self.bigip.shared.file_transfer.tmp.download_file(
+
+        ret = self.bigip.shared.file_transfer.bulk.download_file(
             src, dst)
-        # self.bigip.shared.file_transfer.bulk.download_file(
-            # src, dst)
 
         # self.bigip.shared.file_transfer.tmp.download_file(
             # src, dst)
 
-if __name__ == "__main__":
-    BigipResource()
+        return ret
+
+    def run_bash(self, cmd):
+
+        ret = self.bigip.tm.util.bash.exec_cmd(
+            command='run',
+            utilCmdArgs=cmd
+        )
+
+        return ret

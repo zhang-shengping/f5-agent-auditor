@@ -45,7 +45,9 @@ class Rebuilder(object):
                                     # for selfips, gateway, route
                                     if isinstance(value, list):
                                         rebuild_lbs.update(
-                                            {v["id"]: v for v in value}
+                                            # {v["id"]: v for v in value}
+                                            # only take one sample lb to rebuild.
+                                            {value[0]["id"]: value[0]}
                                         )
                                     # for lb, member, listener ...
                                     if isinstance(value, dict):

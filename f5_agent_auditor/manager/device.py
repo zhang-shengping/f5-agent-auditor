@@ -238,6 +238,8 @@ class Device(object):
 
         self.bigip.config_scf("save", options)
 
+        return filename
+
     def download_scf(self, src, dst="/tmp/default_auditor.scf"):
 
         if not src:
@@ -246,15 +248,7 @@ class Device(object):
 
         self.bigip.download_file(src, dst)
 
-    # def _run_tmsh(self, cmd):
+    def mvto_bulk(self, src, dst="/var/config/rest/bulk/"):
 
-        # ret = self.bigip.tm.util.bash.exec_cmd(
-            # command='run',
-            # utilCmdArgs=cmd
-        # )
-
-        # return ret
-
-
-if __name__ == "__main__":
-    BigipResource()
+        cmd = "-c 'mv " + src + " " + dst + "'"
+        self.bigip.run_bash(cmd)

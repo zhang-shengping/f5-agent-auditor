@@ -113,26 +113,12 @@ def main():
 
             missing_partition = expect(
                 agent_projects, device_partitions)
+            unknown_partition = unexpect(
+                agent_projects, device_partitions)
 
-            # for test
-            # missing_partition = agent_projects.keys()
-
-            # pprint(ret)
-
-            # missing_partition = expect(
-                # agent_projects, device_partitions)
-            # unknown_partition = unexpect(
-                # agent_projects, device_partitions)
-
-            # LOG.info(
-                # "Partitions are not configured in bigip device %s" % device
-            # )
-            # pprint(expected_partition)
-            # LOG.info("Partitions are not found in Neutron LBaaS DB")
-            # pprint(unexpected_partition)
-
-            # device_manager.save_scf(directory="/tmp/")
-            # device_manager.save_scf(directory="/var/local/ucs/")
+            # generate and download scf file
+            # scf = device_manager.save_scf(directory="/var/local/scf/")
+            # device_manager.mvto_bulk(scf)
             # device_manager.download_scf("default_auditor.scf")
 
             device_agents_projects = lbaas_manager.binding_idx[
@@ -181,8 +167,6 @@ def main():
                             END
                         )
                     )
-                    # check partition exist
-
                     # chek network reosurces
 
                     # subnet cache
