@@ -6,6 +6,7 @@ from jinja2 import Environment, FileSystemLoader
 import os
 import subprocess
 
+
 class Rebuilder(object):
 
     def __init__(self, missing_info, rcfile):
@@ -46,7 +47,8 @@ class Rebuilder(object):
                                     if isinstance(value, list):
                                         rebuild_lbs.update(
                                             # {v["id"]: v for v in value}
-                                            # only take one sample lb to rebuild.
+                                            # only take one sample lb
+                                            # to rebuild.
                                             {value[0]["id"]: value[0]}
                                         )
                                     # for lb, member, listener ...

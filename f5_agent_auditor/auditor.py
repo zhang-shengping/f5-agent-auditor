@@ -27,7 +27,8 @@ import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-from pprint import pprint
+from pprint import pformat
+
 import time
 import json
 import psutil
@@ -106,10 +107,13 @@ def main():
                 )
             )
 
-            LOG.info("Check partitions for device: %s" % device_id)
+            LOG.info("Start to auditing partitions for device: %s" % device_id)
             agent_projects = lbaas_manager.agents_projects(
                 group_id, device_id)
             device_partitions = device_manager.dev_partitions()
+
+            LOG.debug("Found partition in DB: %s" % pformat(agent_projects))
+            LOG.debug("Found partition in Bigip: %s" % pformat(agent_projects))
 
             missing_partition = expect(
                 agent_projects, device_partitions)
@@ -174,8 +178,8 @@ def main():
                         lbs)
 
                     LOG.info(
-                        "{}Start to auditing netconf: Vlans, Routedomains, "
-                        "Selfips, Gateways. {}.".format(BOLD, END)
+                        "Start to gather netconf: Vlans, Routedomains, "
+                        "Selfips, Gateways."
                     )
                     device_name = device_manager.device_name
                     vtep_ip = device_manager.node_vtep_ip
@@ -183,14 +187,14 @@ def main():
                         lbaas_manager.dev_agent_project_netconf(
                             device_name, agent_env, vtep_ip, project_nets)
 
+                    LOG.info("Start to auditing vlan")
                     partition_vlans = device_manager.dev_partition_vlans(
                         project_id)
-                    pprint("vlans")
-                    pprint(vlans.keys())
-                    pprint(partition_vlans)
+                    LOG.debug("Found vlan in DB: %s" % pformat(vlans))
+                    LOG.debug("Found vlan in Bigip: %s" % pformat(partition_vlans))
 
                     lb_dicts = lbaas_manager.get_lbs_dicts(lbs)
-                    # import pdb; pdb.set_trace()
+
                     missing_vlans = expect(vlans.keys(), partition_vlans)
                     missing_vlan_lbs = tracer.get_lbs_by_vlans(
                         missing_vlans, vlans, lb_dicts)
@@ -201,19 +205,15 @@ def main():
                             missing_vlan_lbs
                         )
 
-                    # pprint(ret)
-
+                    LOG.info("Start to auditing route domain")
                     partition_rds = device_manager.dev_partition_rds(
                         project_id)
-                    pprint("route domains")
-                    pprint(rds.keys())
-                    pprint(partition_rds)
+                    LOG.debug("Found route domain in DB: %s" % pformat(rds))
+                    LOG.debug("Found route domain in Bigip: %s" % pformat(partition_rds))
 
-                    # import pdb; pdb.set_trace()
                     missing_rds = expect(rds.keys(), partition_rds)
                     missing_rd_lbs = tracer.get_lbs_by_rds(
                         missing_rds, rds, lb_dicts)
-                    # pprint(ret)
 
                     if missing_rd_lbs:
                         log_missings(
@@ -221,17 +221,15 @@ def main():
                             missing_rd_lbs
                         )
 
+                    LOG.info("Start to auditing gateways")
                     partition_gws = device_manager.dev_partition_gateways(
                         project_id)
-                    pprint("gateways")
-                    pprint(gateways.keys())
-                    pprint(partition_gws)
+                    LOG.debug("Found gateway in DB: %s" % pformat(gateways))
+                    LOG.debug("Found gateway in Bigip: %s" % pformat(partition_gws))
 
-                    # import pdb; pdb.set_trace()
                     missing_gateways = expect(gateways.keys(), partition_gws)
                     missing_gateway_lbs = tracer.get_lbs_by_gws(
                         missing_gateways, gateways, lb_dicts)
-                    # pprint(ret)
 
                     if missing_gateway_lbs:
                         log_missings(
@@ -239,18 +237,16 @@ def main():
                             missing_gateway_lbs
                         )
 
+                    LOG.info("Start to auditing selfip")
                     partition_selfips = device_manager.dev_partition_selfips(
                         project_id)
-                    pprint("selfips")
-                    pprint(selfips.keys())
-                    pprint(partition_selfips)
+                    LOG.debug("Found selfip in DB: %s" % pformat(selfips))
+                    LOG.debug("Found selfip in Bigip: %s" % pformat(partition_selfips))
 
-                    # import pdb; pdb.set_trace()
                     missing_selfips = expect(
                         selfips.keys(), partition_selfips)
                     missing_selfip_lbs = tracer.get_lbs_by_selfips(
                         missing_selfips, selfips, lb_dicts)
-                    # pprint(ret)
 
                     if missing_selfip_lbs:
                         log_missings(
@@ -258,7 +254,7 @@ def main():
                             missing_selfip_lbs
                         )
 
-                    # check snatpool of loadbalancers
+                    LOG.info("Start to auditing snatpool")
                     project_snatpools = lbaas_manager.agent_project_snatpools(
                         agent_env, lbs
                     )
@@ -266,16 +262,13 @@ def main():
                         device_manager.dev_partition_snatpools(
                             project_id
                         )
-                    pprint("snatpools")
-                    pprint(project_snatpools)
-                    pprint(partition_snatpools)
+                    LOG.debug("Found snatpool in DB: %s" % pformat(project_snatpools))
+                    LOG.debug("Found snatpool in Bigip: %s" % pformat(partition_snatpools))
 
-                    # import pdb; pdb.set_trace()
                     missing_snatpools = expect(
                         project_snatpools, partition_snatpools)
                     missing_snatpool_lbs = tracer.get_lbs_by_snatpools(
                         missing_snatpools, lb_dicts)
-                    # pprint(ret)
 
                     if missing_snatpool_lbs:
                         log_missings(
@@ -287,21 +280,20 @@ def main():
                     # we do not have to find loadbalancers, so do not cache
                     # loadbalancer object.
                     # when it is absent, we find the absent in DB
+                    LOG.info("Start to auditing loadbalancer")
                     project_loadbalancers = \
                         lbaas_manager.agent_project_loadbalancers(
                             agent_env, lbs)
                     partition_vips = device_manager.dev_partition_vips(
                         project_id)
-                    pprint("loadbalancers-vips")
-                    pprint(project_loadbalancers)
-                    pprint(partition_vips)
 
-                    # import pdb; pdb.set_trace()
+                    LOG.debug("Found loadbalancer in DB: %s" % pformat(project_loadbalancers))
+                    LOG.debug("Found loadbalancer in Bigip: %s" % pformat(partition_vips))
+
                     missing_loadbalancers = expect(
                         project_loadbalancers, partition_vips)
                     missing_lbs = tracer.get_lbs(
                         missing_loadbalancers, lb_dicts)
-                    # pprint(ret)
 
                     if missing_lbs:
                         log_missings(
@@ -313,22 +305,21 @@ def main():
 
                     # we have to find listeners, so cache listeners dict.
                     # when a listener is absent, we trace it in cache.
+                    LOG.info("Start to auditing listener")
                     lbaas_listeners = lbaas_manager.get_listeners(lbs)
 
                     project_listeners = lbaas_manager.agent_project_listeners(
                         agent_env, lbaas_listeners)
                     partition_vss = device_manager.dev_partition_vss(
                         project_id)
-                    pprint("listeners-vss")
-                    pprint(project_listeners.keys())
-                    pprint(partition_vss)
 
-                    # import pdb; pdb.set_trace()
+                    LOG.debug("Found listener in DB: %s" % pformat(project_listeners))
+                    LOG.debug("Found listener in Bigip: %s" % pformat(partition_vss))
+
                     missing_listeners = expect(
                         project_listeners.keys(), partition_vss)
                     missing_listener_lbs = tracer.get_lbs_by_listeners(
                         missing_listeners, project_listeners, lb_dicts)
-                    # pprint(ret)
 
                     if missing_listener_lbs:
                         log_missings(
@@ -338,6 +329,7 @@ def main():
 
                     # chek pools, member, monitors
 
+                    LOG.info("Start to auditing pool")
                     lbaas_pools = lbaas_manager.get_pools(lbs)
                     dev_pools = device_manager.get_pools(project_id)
 
@@ -348,16 +340,13 @@ def main():
                     partition_pools = device_manager.dev_partition_pools(
                         dev_pools
                     )
-                    pprint("pools-pools")
-                    pprint(project_pools.keys())
-                    pprint(partition_pools)
+                    LOG.debug("Found pool in DB: %s" % pformat(project_pools))
+                    LOG.debug("Found pool in Bigip: %s" % pformat(partition_pools))
 
-                    # import pdb; pdb.set_trace()
                     missing_pools = expect(
                         project_pools.keys(), partition_pools)
                     missing_pool_lbs = tracer.get_lbs_by_pools(
                         missing_pools, project_pools, lb_dicts)
-                    # pprint(ret)
 
                     if missing_pool_lbs:
                         log_missings(
@@ -365,6 +354,7 @@ def main():
                             missing_pool_lbs
                         )
 
+                    LOG.info("Start to auditing pool memeber")
                     # member cache
                     project_members = lbaas_manager.agent_project_members(
                         agent_env, project_pools
@@ -372,44 +362,44 @@ def main():
                     partition_members = device_manager.dev_partition_members(
                         dev_pools
                     )
-                    pprint("poolmembers-poolmebmers")
-                    pprint(project_members.keys())
-                    pprint(partition_members)
 
-                    # import pdb; pdb.set_trace()
+                    LOG.debug("Found member in DB: %s" % pformat(project_members))
+                    LOG.debug("Found member in Bigip: %s" % pformat(partition_members))
+
                     missing_members = expect(
                         project_members.keys(), partition_members)
                     missing_member_lbs = tracer.get_lbs_by_members(
                         missing_members, project_members,
                         lbaas_pools, lb_dicts)
-                    # pprint(ret)
+
                     if missing_member_lbs:
                         log_missings(
                             project_missing, "member",
                             missing_member_lbs
                         )
 
+                    LOG.info("Start to auditing pool monitor")
                     project_monitors = lbaas_manager.agent_project_monitors(
                         agent_env, project_pools
                     )
                     partition_monitors = device_manager.dev_partition_monitors(
                         project_id)
-                    pprint("healthmonitors-monitors")
-                    pprint(project_monitors)
-                    pprint(partition_monitors)
 
-                    # import pdb; pdb.set_trace()
+                    LOG.debug("Found monitor in DB: %s" % pformat(project_monitors))
+                    LOG.debug("Found monitor in Bigip: %s" % pformat(partition_monitors))
+
                     missing_monitors = expect(
                         project_monitors, partition_monitors)
                     missing_monitor_lbs = tracer.get_lbs_by_monitors(
                         missing_monitors, lbaas_pools, lb_dicts)
-                    # pprint(ret)
+
                     if missing_monitor_lbs:
                         log_missings(
                             project_missing, "healthmonitor",
                             missing_monitor_lbs
                         )
 
+                    LOG.info("Start to auditing l7rules")
                     lbaas_l7policies = lbaas_manager.get_l7policies(
                         lbaas_listeners)
                     project_l7rules = lbaas_manager.agent_project_l7rules(
@@ -417,17 +407,16 @@ def main():
                     )
                     partition_irules = device_manager.dev_partition_irules(
                         project_id)
-                    pprint("l7rules-irules")
-                    pprint(project_l7rules.keys())
-                    pprint(partition_irules)
 
-                    # import pdb; pdb.set_trace()
+                    LOG.debug("Found l7rule in DB: %s" % pformat(project_l7rules))
+                    LOG.debug("Found irule in Bigip: %s" % pformat(partition_irules))
+
                     missing_l7rules = expect(
                         project_l7rules, partition_irules)
                     missing_l7rule_lbs = tracer.get_lbs_by_l7rules(
                         missing_l7rules, project_l7rules,
                         lbaas_l7policies, lbaas_listeners, lb_dicts)
-                    # pprint(ret)
+
                     if missing_l7rule_lbs:
                         log_missings(
                             project_missing, "l7rule",
@@ -439,13 +428,20 @@ def main():
             with open(filepath, "w") as log_file:
                 json.dump(all_missing, log_file, ensure_ascii=False, indent=4)
 
+            LOG.info("Auditor file %s has been created" % filepath)
+
             global_missing_info[device_id] = all_missing
-    # pprint(global_missing_info)
+
+    LOG.info("Initiate Rebuilder with keystone admin file %s" %
+             conf.rcfile_path)
     rebuilder = Rebuilder(global_missing_info, conf.rcfile_path)
-    pprint(rebuilder.loadbalancers)
+
     bash_script = rebuilder.generate_bash()
+    if bash_script:
+        LOG.info("Create rebuild bash script %s" % bash_script)
 
     if bash_script and conf.rebuild:
+        LOG.info("Run rebuild bash script %s" % bash_script)
         rebuilder.run_bash(bash_script)
 
 
