@@ -106,3 +106,19 @@ def timestamp_filename(name):
 def timestamp_bash(name):
     timestr = time.strftime("%Y%m%d-%H%M%S")
     return name + "_" + timestr + ".sh"
+
+
+def retry(func):
+    def inner(*args, **kwargs):
+        times = 3
+        while times > 0:
+            try:
+                ret = func(*args, **kwargs)
+                return ret
+            except Exception as ex:
+                times -= 1
+                if times > 0:
+                    continue
+                else:
+                    raise ex
+    return inner

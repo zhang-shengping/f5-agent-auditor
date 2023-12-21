@@ -8,15 +8,26 @@ class BigipResource(object):
 
     def __init__(self, v4host, username, password, port):
 
-        self.bigip = ManagementRoot(
+        self.bigip = self.conn(
             v4host, username, password, port=port,
             debug=True
         )
 
+    @utils.retry
+    def conn(self, v4host, username, password, port, debug=True):
+        ret = ManagementRoot(
+            v4host, username, password, port=port,
+            debug=True
+        )
+
+        return ret
+
+    @utils.retry
     def get_partitions(self):
         ret = self.bigip.tm.sys.folders.get_collection()
         return ret
 
+    @utils.retry
     def get_partition_vlans(self, partition):
 
         params = {'params': ''}
@@ -31,6 +42,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def get_partition_rds(self, partition):
 
         params = {'params': ''}
@@ -43,6 +55,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def get_partition_gateways(self, partition):
 
         params = {'params': ''}
@@ -55,6 +68,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def get_partition_selfips(self, partition):
 
         params = {'params': ''}
@@ -67,6 +81,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def get_partition_snatpools(self, partition):
 
         params = {'params': ''}
@@ -79,6 +94,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def get_partition_vips(self, partition):
 
         params = {'params': ''}
@@ -91,6 +107,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def get_partition_vss(self, partition):
 
         params = {'params': ''}
@@ -103,6 +120,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def get_partition_pools(self, partition):
         params = {'params': ''}
         params['params'] = utils.get_filter(
@@ -116,6 +134,7 @@ class BigipResource(object):
         # pools[0].members_s.get_collection()
         return ret
 
+    @utils.retry
     def get_partition_monitors(self, partition):
 
         types = {
@@ -139,6 +158,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def get_partition_irules(self, partition):
 
         params = {'params': ''}
@@ -153,6 +173,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def config_scf(self, cmd, options):
         if not cmd:
             cmd = "save"
@@ -162,6 +183,7 @@ class BigipResource(object):
         )
         return ret
 
+    @utils.retry
     def download_file(self, src, dst):
 
         ret = self.bigip.shared.file_transfer.bulk.download_file(
@@ -172,6 +194,7 @@ class BigipResource(object):
 
         return ret
 
+    @utils.retry
     def run_bash(self, cmd):
 
         ret = self.bigip.tm.util.bash.exec_cmd(
