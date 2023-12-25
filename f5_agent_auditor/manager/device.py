@@ -26,7 +26,96 @@ class Device(object):
             '/', 'Common', 'Drafts', 'ServiceDiscovery', 'appsvcs'
         ]
 
+        self.partition_pools = []
+
         self.build_device_conn()
+
+    def set_dev_ptn_cache(self, lbaas_manager, agents_projects_lbs):
+        self.dev_ptn_cache = {}
+        project_lbs = agents_projects_lbs.values()
+        tenants = self.dev_partitions()
+        self.dev_ptn_cache["tenants"] = tenants
+
+        for agent_id, project_lbs in agents_projects_lbs.items():
+
+            agent = lbaas_manager.agents[agent_id]
+            agent_config = agent.get("configurations", {})
+            env_prefix = agent_config.get("environment_prefix")
+
+            if not env_prefix:
+                raise Exception(
+                    "Can not find environment_prefix in agent %s" % agent
+                )
+
+            for pjt in project_lbs.keys():
+                partition = utils.partition_name(
+                    env_prefix, pjt
+                )
+
+                if partition not in tenants:
+                    continue
+
+                if partition not in self.dev_ptn_cache:
+
+                    vlans = self.bigip.get_partition_vlans(partition)
+                    vlans = [vlan.name for vlan in vlans]
+
+                    selfips = self.bigip.get_partition_selfips(partition)
+                    selfips = [selfip.name for selfip in selfips]
+
+                    rds = self.bigip.get_partition_rds(partition)
+                    rds = [rd.name for rd in rds]
+
+                    gws = self.bigip.get_partition_gateways(partition)
+                    gws = [gw.name for gw in gws]
+
+                    snatpools = self.bigip.get_partition_snatpools(partition)
+                    snatpools = [snatpool.name for snatpool in snatpools]
+
+                    vips = self.bigip.get_partition_vips(partition)
+                    vips = [vip.name for vip in vips]
+
+                    vss = self.bigip.get_partition_vss(partition)
+                    vss = [vs.name for vs in vss]
+
+                    sys_prefix = ('_sys_', 'bwc_irule', 'acl_irule')
+                    rules = self.bigip.get_partition_irules(partition)
+                    rules = [rule.name for rule in rules
+                             if not rule.name.startswith(sys_prefix)]
+
+                    pool_objs = self.bigip.get_partition_pools(partition)
+                    pools = [pl.name for pl in pool_objs]
+
+                    members = self.dev_partition_members(pool_objs)
+
+                    monitors = self.bigip.get_partition_monitors(partition)
+                    monitors = [mn.name for mn in monitors]
+
+                    self.dev_ptn_cache[partition] = {
+                        "vlans": vlans,
+                        "selfips": selfips,
+                        "rds": rds,
+                        "gateways": gws,
+                        "snatpools": snatpools,
+                        "vips": vips,
+                        "vss": vss,
+                        "irules": rules,
+                        "pools": pools,
+                        "members": members,
+                        "monitors": monitors
+                    }
+
+    def clean_dev_ptn_cache(self):
+        self.dev_ptn_cache = {}
+
+    def set_dev_ptn_pools_cache(self, pools):
+        self.partition_pools = pools
+
+    def get_dev_ptn_pools_cache(self):
+        return self.partition_pools
+
+    def clean_dev_ptn_pools_cache(self):
+        self.partition_pools = []
 
     def build_device_conn(self):
 
@@ -103,77 +192,61 @@ class Device(object):
         ]
         return ret
 
-    def dev_partition_vlans(self, project_id):
+    def dev_partition_vlans(self, partition):
         # TODO(pzhang) may be set ret as None for telling error happened
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         vlans = self.bigip.get_partition_vlans(partition)
         ret = [vlan.name for vlan in vlans]
 
         return ret
 
-    def dev_partition_rds(self, project_id):
+    def dev_partition_rds(self, partition):
         # TODO(pzhang) may be set ret as None for telling error happened
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         rds = self.bigip.get_partition_rds(partition)
         ret = [rd.name for rd in rds]
 
         return ret
 
-    def dev_partition_gateways(self, project_id):
+    def dev_partition_gateways(self, partition):
         # TODO(pzhang) may be set ret as None for telling error happened
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         gws = self.bigip.get_partition_gateways(partition)
         ret = [gw.name for gw in gws]
 
         return ret
 
-    def dev_partition_selfips(self, project_id):
+    def dev_partition_selfips(self, partition):
         # TODO(pzhang) may be set ret as None for telling error happened
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         selfips = self.bigip.get_partition_selfips(partition)
         ret = [selfip.name for selfip in selfips]
 
         return ret
 
-    def dev_partition_snatpools(self, project_id):
+    def dev_partition_snatpools(self, partition):
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         snatpools = self.bigip.get_partition_snatpools(partition)
         ret = [snatpool.name for snatpool in snatpools]
 
         return ret
 
-    def dev_partition_vips(self, project_id):
+    def dev_partition_vips(self, partition):
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         vips = self.bigip.get_partition_vips(partition)
         ret = [vip.name for vip in vips]
 
         return ret
 
-    def dev_partition_vss(self, project_id):
+    def dev_partition_vss(self, partition):
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         vss = self.bigip.get_partition_vss(partition)
         ret = [vs.name for vs in vss]
 
         return ret
 
-    def get_pools(self, project_id):
+    def get_pools(self, partition):
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         ret = self.bigip.get_partition_pools(partition)
 
         return ret
@@ -188,21 +261,17 @@ class Device(object):
             ret += [mb.description for mb in mbs]
         return ret
 
-    def dev_partition_monitors(self, project_id):
+    def dev_partition_monitors(self, partition):
         ret = []
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         mns = self.bigip.get_partition_monitors(partition)
         ret = [mn.name for mn in mns]
 
         return ret
 
-    def dev_partition_irules(self, project_id):
+    def dev_partition_irules(self, partition):
         sys_prefix = "_sys_"
 
-        partition = utils.partition_name(
-            self.partition_prefix, project_id)
         rules = self.bigip.get_partition_irules(partition)
         ret = [rule.name for rule in rules
                if not rule.name.startswith(sys_prefix)]

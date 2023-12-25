@@ -55,9 +55,14 @@ class Lbaas(object):
         self.device_groups = {}
         self.devices = {}
         self.agents = {}
-        # self.loadbalancers = {}
+
+        self.project_lbs = {}
+        self.project_listeners = []
+        self.project_pools = []
 
         self.binding_idx = self.build_binding_index()
+
+        self.dev_pjt_cache = {}
 
     @utils.time_logger(LOG)
     def build_binding_index(self):
@@ -76,8 +81,6 @@ class Lbaas(object):
 
             loadbalancer = self.db.get_loadbalancer_by_id(lb_id)
             project_id = loadbalancer['project_id']
-            # add_cache(self.loadbalancers,
-                      # loadbalancer["id"], loadbalancer)
 
             if not (device_group_id and agent_id and lb_id):
                 LOG.ERROR("bind %s is misdata for binding tree.")
@@ -116,6 +119,53 @@ class Lbaas(object):
                     lb_id)
 
         return tree
+
+    def add_dev_pjt_cache(self, current_partition, res_type, values):
+
+        if res_type == "tenants":
+            self.dev_pjt_cache["tenants"] = values
+            return
+
+        if current_partition not in self.dev_pjt_cache:
+            self.dev_pjt_cache[current_partition] = {}
+        current_partition_res = self.dev_pjt_cache[current_partition]
+
+        if res_type not in current_partition_res:
+            current_partition_res[res_type] = []
+
+        current_res = current_partition_res[res_type]
+        accumulate_res = set(values) | set(current_res)
+        current_partition_res[res_type] = list(accumulate_res)
+
+    def clean_dev_pjt_cache(self):
+        self.dev_pjt_cache = {}
+
+    def set_agt_pjt_lbs_cache(self, lbs):
+        self.project_lbs = lbs
+
+    def get_agt_pjt_lbs_cache(self):
+        return self.project_lbs
+
+    def clean_agt_pjt_lbs_cache(self):
+        self.project_lbs = {}
+
+    def set_agt_pjt_listeners_cache(self, listeners):
+        self.project_listeners = listeners
+
+    def get_agt_pjt_listeners_cache(self):
+        return self.project_listeners
+
+    def clean_agt_pjt_listeners_cache(self):
+        self.project_listeners = []
+
+    def set_agt_pjt_pools_cache(self, pools):
+        self.project_pools = pools
+
+    def get_agt_pjt_pools_cache(self):
+        return self.project_pools
+
+    def clean_agt_pjt_pools_cache(self):
+        self.project_pools = []
 
     # TODO(pzhang): add cache for db
     def _get_subnet_by_lbid(self, lb_id):
@@ -165,9 +215,9 @@ class Lbaas(object):
 
     def dev_agent_project_nets(self, project_lbs):
 
-        ret = {}
+        lb_net_ret = {}
+        snat_net_ret = {}
 
-        # TODO(pzhang): add cache for db
         for lb_id in project_lbs:
             subnet = self._get_subnet_by_lbid(lb_id)
             net = self._get_segnet_by_subnet(subnet)
@@ -179,22 +229,49 @@ class Lbaas(object):
                 )
             net["subnets"] = {subnet["id"]: subnet for subnet in subnets}
 
-            if net["id"] not in ret:
-                ret[net["id"]] = net
+            if net["id"] not in lb_net_ret:
+                lb_net_ret[net["id"]] = net
 
-        return ret
+            snat_name = "snat-" + lb_id
+            snat_net = self.db.get_net_by_name(snat_name)
+            if snat_net:
+                net_id = snat_net['id']
+                subnets = self.db.get_subnet_by_netid(net_id)
+                if len(subnets) > 2:
+                    raise Exception(
+                        "The Netowrk %s has Subnets are more than 2.\n"
+                        "Subnets: %s\n." % (net["id"], subnets)
+                    )
+                snat_net["subnets"] = {}
+                for subnet in subnets:
+                    subnet['lb_id'] = lb_id
+                    snat_net["subnets"][subnet["id"]] = subnet
+
+                segments = self.db.get_segments_by_net_id(net_id)
+                snat_net['segments'] = {
+                    seg['physical_network']: seg for seg in segments}
+                snat_net['lb_id'] = lb_id
+
+                if net_id not in snat_net_ret:
+                    snat_net_ret[net_id] = snat_net
+
+        return lb_net_ret, snat_net_ret
 
     def dev_agent_project_netconf(
-            self, device_name, agent_env, vtep_ip, project_nets):
+            self, device_manager, project_lb_nets, project_snat_nets):
         """Return selfips, vlans, route domain, gateways of all
         networks.
         """
+        device_name = device_manager.device_name
+        vtep_ip = device_manager.node_vtep_ip
+        agent_env = device_manager.partition_prefix
+
         vlans = {}
         rds = {}
         selfips = {}
         gateways = {}
 
-        for net in project_nets.values():
+        for net in project_lb_nets.values():
             seg_id = utils.get_vlan_segid(vtep_ip, net)
             vlan = utils.vlan_name(seg_id)
             rd = utils.rd_name(agent_env, net["id"])
@@ -211,9 +288,19 @@ class Lbaas(object):
                 gateway = utils.gatewy_name(gateway_ip, seg_id)
                 gateways[gateway] = subnet
 
+        for net in project_snat_nets.values():
+            seg_id = utils.get_vlan_segid(vtep_ip, net)
+            vlan = utils.vlan_name(seg_id)
+            subnets = net["subnets"]
+            vlans[vlan] = subnets
+
+            for subnet_id, subnet in subnets.items():
+                selfip = utils.selfip_name(device_name, subnet_id)
+                selfips[selfip] = subnet
+
         return vlans, rds, selfips, gateways
 
-    def agent_project_loadbalancers(self, agent_env, lbs):
+    def loadbalancer_names(self, agent_env, lbs):
         ret = []
 
         for lb_id in lbs:
@@ -298,12 +385,14 @@ class Lbaas(object):
         return ret
 
     def get_lbs_dicts(self, lb_ids):
-        ret = []
+        # ret = []
+        ret = {}
 
         for lb_id in lb_ids:
             lb_dict = self.db.get_loadbalancer_by_id(lb_id)
             subnet_id = lb_dict["vip_subnet_id"]
             subnet = self.db.get_subnet_by_id(subnet_id)
             lb_dict["network_id"] = subnet["network_id"]
-            ret.append(lb_dict)
+            ret[lb_id] = lb_dict
+            # ret.append(lb_dict)
         return ret
