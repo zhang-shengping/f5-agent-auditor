@@ -67,10 +67,16 @@ class Tracer(object):
             vlan_subnets = vlans[vlan_name]
             loadbalancers = []
             ret[vlan_name] = loadbalancers
-            for subnet_id in vlan_subnets:
-                for lb in subnet_lbs.get(subnet_id, []):
+            for subnet_id, subnet in vlan_subnets.items():
+                if "lb_id" in subnet:
+                    lb_id = subnet["lb_id"]
+                    lb = self.db.get_loadbalancer_by_id(lb_id)
                     lb.update(self.binding_info)
                     loadbalancers.append(lb)
+                else:
+                    for lb in subnet_lbs.get(subnet_id, []):
+                        lb.update(self.binding_info)
+                        loadbalancers.append(lb)
         return ret
 
     def get_lbs_by_rds(self, missing_rds, rds, lb_dicts):
@@ -115,69 +121,75 @@ class Tracer(object):
             ret[selfip_name] = loadbalancers
 
             selfip_subnet = selfips[selfip_name]
-            net_id = selfip_subnet["network_id"]
 
-            # import pdb; pdb.set_trace()
-            for lb in net_lbs.get(net_id, []):
-                lb.update(self.binding_info)
+            # for trace lb with customerized snat pool
+            if "lb_id" in selfip_subnet:
+                lb_id = selfip_subnet["lb_id"]
+                lb = self.db.get_loadbalancer_by_id(lb_id)
                 loadbalancers.append(lb)
+            else:
+                net_id = selfip_subnet["network_id"]
+                for lb in net_lbs.get(net_id, []):
+                    lb.update(self.binding_info)
+                    loadbalancers.append(lb)
 
         return ret
 
-    def get_lbs_by_snatpools(self, missing_snatpools, lbs_dicts):
+    def get_lbs_by_snatpools(self, missing_snatpools, lb_dicts):
         ret = {}
-        lbs = self.id_res(lbs_dicts)
+        # lbs = self.id_res(lbs_dicts)
 
         for snatpool_name in missing_snatpools:
             lb_id = utils.remove_prefix(snatpool_name)
-            lb = lbs[lb_id]
+            lb = lb_dicts[lb_id]
             lb.update(self.binding_info)
             ret[snatpool_name] = lb
 
         return ret
 
-    def get_lbs(self, missing_lbs, lbs_dicts):
+    def get_lbs(self, missing_lbs, lb_dicts):
         ret = {}
-        lbs = self.id_res(lbs_dicts)
+        # lbs = self.id_res(lbs_dicts)
 
         for lb_name in missing_lbs:
             lb_id = utils.remove_prefix(lb_name)
-            lb = lbs[lb_id]
+            lb = lb_dicts[lb_id]
             lb.update(self.binding_info)
             ret[lb_name] = lb
 
         return ret
 
-    def get_lbs_by_listeners(self, missing_lss, id_lss, lbs):
+    def get_lbs_by_listeners(self, missing_lss, id_lss, lb_dicts):
         ret = {}
-        lbs = self.id_res(lbs)
+        # lbs = self.id_res(lbs)
         for ls_name in missing_lss:
             ls = id_lss[ls_name]
             lb_id = ls["loadbalancer_id"]
-            lb = lbs[lb_id]
+            lb = lb_dicts[lb_id]
 
             lb.update(self.binding_info)
             ret[ls_name] = lb
 
         return ret
 
-    def get_lbs_by_pools(self, missing_pools, id_pools, lbs):
+    def get_lbs_by_pools(self, missing_pools, id_pools, lb_dicts):
         ret = {}
-        lbs = self.id_res(lbs)
+        # lbs = self.id_res(lbs)
 
         for pool_name in missing_pools:
             pool = id_pools[pool_name]
             lb_id = pool["loadbalancer_id"]
-            lb = lbs[lb_id]
+            lb = lb_dicts[lb_id]
 
             lb.update(self.binding_info)
             ret[pool_name] = lb
 
         return ret
 
-    def get_lbs_by_members(self, missing_members, id_members, pools, lbs):
+    def get_lbs_by_members(self, missing_members, id_members,
+                           pools, lb_dicts):
         ret = {}
-        lbs = self.id_res(lbs)
+        # lbs = self.id_res(lbs)
         pools = self.id_res(pools)
 
         for member_name in missing_members:
@@ -187,25 +199,25 @@ class Tracer(object):
             pool = pools[pool_id]
 
             lb_id = pool["loadbalancer_id"]
-            lb = lbs[lb_id]
+            lb = lb_dicts[lb_id]
 
             lb.update(self.binding_info)
             ret[member_name] = lb
 
         return ret
 
-    def get_lbs_by_monitors(self, missing_monitors, pools, lbs):
+    def get_lbs_by_monitors(self, missing_monitors, pools,
+                            lb_dicts):
         ret = {}
-        lbs = self.id_res(lbs)
+        # lbs = self.id_res(lbs)
         pools = {pool["healthmonitor_id"]: pool for pool in pools}
 
         for monitor_name in missing_monitors:
             monitor_id = utils.remove_prefix(monitor_name)
-            # import pdb; pdb.set_trace()
             pool = pools[monitor_id]
 
             lb_id = pool["loadbalancer_id"]
-            lb = lbs[lb_id]
+            lb = lb_dicts[lb_id]
 
             lb.update(self.binding_info)
             ret[monitor_name] = lb
@@ -213,9 +225,9 @@ class Tracer(object):
         return ret
 
     def get_lbs_by_l7rules(self, missing_l7rules, id_l7rules,
-                           l7policies, lss, lbs):
+                           l7policies, lss, lb_dicts):
         ret = {}
-        lbs = self.id_res(lbs)
+        # lbs = self.id_res(lbs)
         l7policies = {policy["id"]: policy for policy in l7policies}
         lss = {ls["id"]: ls for ls in lss}
 
@@ -229,7 +241,7 @@ class Tracer(object):
             ls = lss[listener_id]
             lb_id = ls["loadbalancer_id"]
 
-            lb = lbs[lb_id]
+            lb = lb_dicts[lb_id]
             lb.update(self.binding_info)
             ret[l7rule_name] = lb
 

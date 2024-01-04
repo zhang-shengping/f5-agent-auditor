@@ -242,6 +242,17 @@ class LbaasDBResource(object):
 
         return ret
 
+    def get_net_by_name(self, net_name):
+        ret = None
+        ret = self.first('SELECT * FROM networks WHERE name="%s"' % net_name)
+
+        if not ret:
+            return ret
+
+        ret = dict(ret)
+
+        return ret
+
     def get_subnet_by_netid(self, net_id):
         rows = self.fetchall(
             'SELECT * FROM subnets WHERE network_id="%s"' % net_id)
