@@ -332,6 +332,29 @@ class LbaasDBResource(object):
 
         return ret
 
+    def _format_filters(self, filters):
+        comb = ""
+        tmp = []
+
+        for k, v in filters.items():
+            tmp.append('%s="%s"' % (k, v))
+
+        if tmp:
+            flt = " AND ".join(tmp)
+            comb = "WHERE " + flt
+
+        return comb
+
+    def try_to_find(self, table, filters):
+        table = "lbaas_" + table
+
+        if filters:
+            where_comb = self._format_filters(filters)
+            stat = 'SELECT * FROM ' + table + ' ' + where_comb
+            row = self.first(stat)
+            if row:
+                return dict(row)
+
 
 if __name__ == "__main__":
     conf.connection = "mysql+pymysql://neutron:c888221d9aec4d20@10.145.74.159/neutron"

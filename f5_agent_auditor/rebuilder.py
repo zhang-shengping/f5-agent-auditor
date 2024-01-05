@@ -9,7 +9,7 @@ import subprocess
 
 class Rebuilder(object):
 
-    def __init__(self, missing_info, rcfile):
+    def __init__(self, missing_info, diff_lbs, rcfile):
         """{
             "device_id":{
                 "agent_id":{
@@ -26,10 +26,10 @@ class Rebuilder(object):
                 "Please provider keystone admin rcfile")
         self.rcfile = rcfile
 
-        self.loadbalancers = self.filter_loadbalancers()
+        self.loadbalancers = self.filter_loadbalancers(diff_lbs)
 
-    def filter_loadbalancers(self):
-        rebuild_lbs = {}
+    def filter_loadbalancers(self, diff_lbs):
+        rebuild_lbs = diff_lbs
 
         for agent in self.missing_info.values():
             for project in agent.values():

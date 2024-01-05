@@ -13,6 +13,13 @@ class BigipResource(object):
             debug=True
         )
 
+    def collection(self, resource_type):
+        if resource_type in utils.collection_map:
+            return utils.collection_map[resource_type](self.bigip)
+        else:
+            raise KeyError("No collection available for %s" %
+                           (self.resource_type))
+
     @utils.retry
     def conn(self, v4host, username, password, port, debug=True):
         ret = ManagementRoot(
@@ -201,5 +208,54 @@ class BigipResource(object):
             command='run',
             utilCmdArgs=cmd
         )
+
+        return ret
+
+    @utils.retry
+    def devices(self):
+        return self.bigip.tm.cm.devices.get_collection()
+
+    @utils.retry
+    def get_device_info(self, device_name):
+        device_info = self.bigip.tm.cm.devices.device.load(
+            name=device_name, partition='Common'
+        )
+        return device_info
+
+    @utils.retry
+    def get_vips(self):
+        ret = self.bigip.tm.ltm.virtual_address_s.get_collection()
+        return ret
+
+    @utils.retry
+    def get_vss(self):
+        ret = self.bigip.tm.ltm.virtuals.get_collection()
+        return ret
+
+    @utils.retry
+    def get_pools(self):
+        # bigip.tm.ltm.pools.pool.member
+        ret = self.bigip.tm.ltm.pools.get_collection()
+
+        # pools[0].members_s.get_collection()
+        return ret
+
+    @utils.retry
+    def get_monitors(self):
+
+        types = {
+            "TCP": self.bigip.tm.ltm.monitor.tcps,
+            "HTTP": self.bigip.tm.ltm.monitor.https,
+            "HTTPS": self.bigip.tm.ltm.monitor.https_s,
+            "UDP": self.bigip.tm.ltm.monitor.udps,
+            # "SIP": self.bigip.tm.ltm.monitor.udps,
+            # "Diameter": self.bigip.tm.ltm.monitor.diameters,
+            "PING":  self.bigip.tm.ltm.monitor.gateway_icmps
+        }
+
+        ret = []
+
+        for monitor_handler in types.values():
+            ret += monitor_handler.get_collection()
 
         return ret

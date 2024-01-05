@@ -23,7 +23,8 @@ from oslo_db import options
 
 tool_opts = [
     cfg.StrOpt("rcfile-path", required=True),
-    cfg.BoolOpt("rebuild", default=False)
+    cfg.BoolOpt("rebuild", default=False),
+    cfg.BoolOpt("skip-discon", default=False)
 ]
 
 cfg.CONF.register_cli_opts(tool_opts)

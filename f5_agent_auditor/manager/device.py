@@ -127,13 +127,18 @@ class Device(object):
         encrypted_password = device_info["password"]
         port = device_info["port"]
 
-        self.bigip = BigipResource(
-            v4host,
-            decrypt_data(serial_number, encrypted_username),
-            decrypt_data(serial_number, encrypted_password),
-            port=port,
-            # token=token
-        )
+        try:
+            self.bigip = BigipResource(
+                v4host,
+                decrypt_data(serial_number, encrypted_username),
+                decrypt_data(serial_number, encrypted_password),
+                port=port,
+                # token=token
+            )
+        except Exception as ex:
+            LOG.warn("Cannot establish connection with device %s:%s" %
+                     (v4host, port))
+            raise ex
 
         self.device_name = device_info["device_name"]
 
@@ -321,3 +326,46 @@ class Device(object):
 
         cmd = "-c 'mv " + src + " " + dst + "'"
         self.bigip.run_bash(cmd)
+
+    def get_device_ha_role(self):
+        device_info = self.bigip.get_device_info(self.device_name)
+        return device_info.failoverState.lower()
+
+    def get_dev_config_of(self, resource_type):
+        ret = {}
+
+        res_handle = self.bigip.collection(resource_type)
+        config = res_handle.get_collection()
+        ret = utils.to_dict(config)
+
+        return ret
+
+    def get_dev_vips(self):
+        ret = self.bigip.get_vips()
+        ret = utils.to_dict(ret)
+
+        return ret
+
+    def get_dev_vss(self):
+        ret = self.bigip.get_vss()
+        ret = utils.to_dict(ret)
+
+        return ret
+
+    def get_dev_config_of_pools(self):
+        ret = {}
+
+        pools = self.bigip.get_pools()
+        for pool in pools:
+            members = pool.members_s.get_collection()
+            pool.members = {
+                mb.fullPath: mb.attrs for mb in members}
+            ret[pool.fullPath] = pool.attrs
+
+        return ret
+
+    def get_dev_monitors(self):
+        ret = self.bigip.get_monitors()
+        ret = utils.to_dict(ret)
+
+        return ret

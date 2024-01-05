@@ -354,7 +354,9 @@ class Lbaas(object):
         ret = []
 
         for pl in pools.values():
-            ret.append(utils.res_name(agent_env, pl["healthmonitor_id"]))
+            hm_id = pl.get("healthmonitor_id")
+            if hm_id is not None:
+                ret.append(utils.res_name(agent_env, hm_id))
             # monitor_id = pl["healthmonitor_id"]
             # ret[utils.res_name(agent_env, pl["healthmonitor_id"])] = \
                 # self.db.get_monitors_by_id(monitor_id)

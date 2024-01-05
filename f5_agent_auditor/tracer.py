@@ -2,6 +2,8 @@
 
 from f5_agent_auditor import utils
 
+import constants
+
 
 class Tracer(object):
 
@@ -246,3 +248,146 @@ class Tracer(object):
             ret[l7rule_name] = lb
 
         return ret
+
+    def get_lbs_by_lbdiff(self, diff):
+
+        lbs = {}
+        for resource_type in constants.LOADBALANCER_RESOURCES:
+
+            df = diff.get(resource_type)
+
+            if not df:
+                continue
+
+            for fullpath in df.keys():
+                lb = None
+                partition, name = utils.split_fullpath(fullpath)
+
+                if partition == "Common" or "_" not in partition or \
+                        "_" not in name:
+                    continue
+
+                prefix, project_id = utils.split_partition(partition)
+                prefix, lb_id = name.split("_")
+
+                filters = {"project_id": project_id, "id": lb_id}
+
+                lb = self.db.try_to_find("loadbalancers", filters)
+                if not lb:
+                    continue
+
+                lbs[lb['id']] = lb
+
+        return lbs
+
+    def get_lbs_by_mndiff(self, diff):
+
+        lbs = {}
+
+        for resource_type in constants.MONITOR_RESOURCES:
+
+            df = diff.get(resource_type)
+
+            if not df:
+                continue
+
+            for fullpath in df.keys():
+                pool = None
+                lb = None
+                partition, name = utils.split_fullpath(fullpath)
+
+                if partition == "Common" or "_" not in partition or \
+                        "_" not in name:
+                    continue
+
+                prefix, project_id = utils.split_partition(partition)
+                prefix, mn_id = name.split("_")
+
+                filters = {"project_id": project_id, "healthmonitor_id": mn_id}
+                pool = self.db.try_to_find("pools", filters)
+                if not pool:
+                    continue
+
+                lb_id = pool["loadbalancer_id"]
+                filters = {"project_id": project_id, "id": lb_id}
+                lb = self.db.try_to_find("loadbalancers", filters)
+                if not lb:
+                    continue
+
+                lbs[lb['id']] = lb
+
+        return lbs
+
+    def get_lbs_by_pldiff(self, diff):
+
+        lbs = {}
+
+        df = diff.get("pool")
+
+        if not df:
+            return lbs
+
+        for fullpath in df.keys():
+            pool = None
+            lb = None
+            partition, name = utils.split_fullpath(fullpath)
+
+            if partition == "Common" or "_" not in partition or \
+                    "_" not in name:
+                continue
+
+            prefix, project_id = utils.split_partition(partition)
+            prefix, pl_id = name.split("_")
+
+            filters = {"project_id": project_id, "id": pl_id}
+            pool = self.db.try_to_find("pools", filters)
+            if not pool:
+                continue
+
+            lb_id = pool["loadbalancer_id"]
+            filters = {"project_id": project_id, "id": lb_id}
+            lb = self.db.try_to_find("loadbalancers", filters)
+            if not lb:
+                continue
+
+            lbs[lb['id']] = lb
+
+        return lbs
+
+    def get_lbs_by_lsdiff(self, diff):
+
+        lbs = {}
+
+        for resource_type in constants.LISTENER_RESOURCES:
+
+            df = diff.get(resource_type)
+
+            if not df:
+                continue
+
+            for fullpath in df.keys():
+                listener = None
+                lb = None
+                partition, name = utils.split_fullpath(fullpath)
+
+                if partition == "Common" or "_" not in partition or \
+                        "_" not in name:
+                    continue
+
+                prefix, project_id = utils.split_partition(partition)
+                ls_id = name.split("_")[-1]
+
+                filters = {"project_id": project_id, "id": ls_id}
+                listener = self.db.try_to_find("listeners", filters)
+                if not listener:
+                    continue
+
+                lb_id = listener["loadbalancer_id"]
+                filters = {"project_id": project_id, "id": lb_id}
+                lb = self.db.try_to_find("loadbalancers", filters)
+                if not lb:
+                    continue
+
+                lbs[lb['id']] = lb
+
+        return lbs

@@ -22,20 +22,15 @@ from f5_agent_auditor import utils
 
 from f5_agent_auditor import options
 from oslo_log import log as logging
+from pprint import pformat
 
+import constants
+import json
 import requests
+
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-from pprint import pformat
-from pprint import pprint
-
-import time
-import json
-import psutil
-import os
-
-pid = os.getpid()
 
 conf = options.cfg.CONF
 logging.setup(conf, __name__)
@@ -65,7 +60,7 @@ def log_missings(cache, res_type, res):
 def missing_vlan(partition, vlans, lb_dicts,
                  device_manager, tracer, project_missing):
 
-    LOG.info("Start to auditing missing vlan")
+    LOG.info("audit missing vlan")
 
     lbs = lb_dicts.values()
 
@@ -86,17 +81,10 @@ def missing_vlan(partition, vlans, lb_dicts,
         )
 
 
-# def unknown_vlan(current_partition, vlans, device_manager):
-    # partition_vlans = device_manager[
-        # current_partition]["vlan"]
-
-    # tmp_unknown_vlans = unexpect(vlans, partition_vlans)
-
-
 def missing_rd(partition, rds, lb_dicts,
                device_manager, tracer, project_missing):
 
-    LOG.info("Start to auditing route domain")
+    LOG.info("audit missing route domain")
 
     lbs = lb_dicts.values()
     partition_rds = device_manager.dev_partition_rds(partition)
@@ -118,7 +106,7 @@ def missing_rd(partition, rds, lb_dicts,
 def missing_gateway(partition, gateways, lb_dicts,
                     device_manager, tracer, project_missing):
 
-    LOG.info("Start to auditing gateways")
+    LOG.info("audit missing gateways")
 
     lbs = lb_dicts.values()
     partition_gws = device_manager.dev_partition_gateways(
@@ -141,7 +129,7 @@ def missing_gateway(partition, gateways, lb_dicts,
 def missing_selfip(partition, selfips, lb_dicts,
                    device_manager, tracer, project_missing):
 
-    LOG.info("Start to auditing selfip")
+    LOG.info("audit missing selfip")
 
     lbs = lb_dicts.values()
     partition_selfips = device_manager.dev_partition_selfips(
@@ -165,7 +153,7 @@ def missing_selfip(partition, selfips, lb_dicts,
 def missing_snatpool(partition, lb_dicts, lbaas_manager,
                      device_manager, tracer, project_missing):
 
-    LOG.info("Start to auditing snatpool")
+    LOG.info("audit missing snatpool")
 
     lb_ids = lb_dicts.keys()
     agent_env = device_manager.partition_prefix
@@ -203,7 +191,7 @@ def missing_loadbalancer(partition, lb_dicts, lbaas_manager,
     # loadbalancer object.
     # when it is absent, we find the absent in DB
 
-    LOG.info("Start to auditing loadbalancer")
+    LOG.info("audit missing loadbalancer")
 
     lb_ids = lb_dicts.keys()
     agent_env = device_manager.partition_prefix
@@ -237,7 +225,7 @@ def missing_listener(partition, lb_dicts, lbaas_manager,
 
     # we have to find listeners, so cache listeners dict.
     # when a listener is absent, we trace it in cache.
-    LOG.info("Start to auditing listener")
+    LOG.info("audit missing listener")
 
     lb_ids = lb_dicts.keys()
     agent_env = device_manager.partition_prefix
@@ -270,7 +258,7 @@ def missing_listener(partition, lb_dicts, lbaas_manager,
 def missing_l7rule(partition, lb_dicts, lbaas_manager,
                    device_manager, tracer, project_missing):
 
-    LOG.info("Start to auditing l7rules")
+    LOG.info("audit missing l7rules")
 
     lbaas_listeners = lbaas_manager.get_agt_pjt_listeners_cache()
     lbaas_l7policies = lbaas_manager.get_l7policies(
@@ -303,7 +291,7 @@ def missing_pool(partition, lb_dicts, lbaas_manager,
                  device_manager, tracer, project_missing):
 
     # chek pools
-    LOG.info("Start to auditing pool")
+    LOG.info("audit missing pool")
 
     lb_ids = lb_dicts.keys()
     agent_env = device_manager.partition_prefix
@@ -343,7 +331,7 @@ def missing_member(partition, lb_dicts, lbaas_manager,
                    device_manager, tracer,
                    project_missing):
 
-    LOG.info("Start to auditing pool memeber")
+    LOG.info("audit missing pool memeber")
 
     agent_env = device_manager.partition_prefix
     lbaas_pools = lbaas_manager.get_agt_pjt_pools_cache()
@@ -381,7 +369,7 @@ def missing_member(partition, lb_dicts, lbaas_manager,
 def missing_monitor(partition, lb_dicts, lbaas_manager, device_manager,
                     tracer, project_missing):
 
-    LOG.info("Start to auditing pool monitor")
+    LOG.info("audit missing pool monitor")
 
     agent_env = device_manager.partition_prefix
     lbaas_pools = lbaas_manager.get_agt_pjt_pools_cache()
@@ -485,6 +473,9 @@ def check_unknown_details(device_manager, lbaas_manager,
         unknown = []
 
         if key == "tenants":
+
+            LOG.info("audit unknown tenant")
+
             lbaas_values = lbaas_cache.get(key, [])
             unknown = set(dev_values) - set(lbaas_values)
             if unknown:
@@ -501,16 +492,19 @@ def check_unknown_details(device_manager, lbaas_manager,
         current_unknown = current_dev_unknown.get(partition)
 
         for res_type, res in dev_res.items():
+
+            LOG.info("audit unknown %s" % res_type)
+
             tmp_res = lbaas_res.get(res_type, [])
             unknown = set(res) - set(tmp_res)
             if unknown:
                 current_unknown[res_type] = list(unknown)
 
 
-def generate_rebuild_script(global_missing):
+def generate_rebuild_script(global_missing, diff_lbs):
     LOG.info("Initiate Rebuilder with keystone admin file %s" %
              conf.rcfile_path)
-    rebuilder = Rebuilder(global_missing, conf.rcfile_path)
+    rebuilder = Rebuilder(global_missing, diff_lbs, conf.rcfile_path)
 
     bash_script = rebuilder.generate_bash()
     if bash_script:
@@ -521,14 +515,17 @@ def generate_rebuild_script(global_missing):
         rebuilder.run_bash(bash_script)
 
 
+def _device_connected(device_manager):
+    return device_manager is not None
+
+
 BOLD = '\033[1m'
 END = '\033[0m'
 
 
 @utils.time_logger(LOG)
+@utils.profile(LOG)
 def main():
-
-    LOG.info("Start auditing")
 
     LOG.info("Initate Comparator ...")
 
@@ -541,15 +538,17 @@ def main():
     )
     lbaas_manager = Lbaas(lbaasDB)
 
-    # NOTE(pzhang): replace this binding_idx as a cache object
-    # the cache object can be shared by other object service.
-    # all binding {'device_group': {'device':{'agent'{'project':['lb_id']}}}}
+    # NOTE(pzhang): replace this binding_idx as a cache object,
+    # so that it can be shared by other object service ?
+    # lbaas_manager.binding_idx structure is
+    # {'device_group': {'device':{'agent'{'project':['lb_id']}}}}
     binding_idx = lbaas_manager.binding_idx
 
     # device id is not shared by device_group
     global_missing = {}
 
     for group_id in binding_idx:
+
         device_group = lbaas_manager.device_groups[group_id]
 
         for device_id in binding_idx[group_id]:
@@ -559,7 +558,16 @@ def main():
                 "for device %s" % device_id
             )
             device = lbaas_manager.devices[device_id]
-            device_manager = Device(device_group, device)
+
+            device_manager = None
+            try:
+                device_manager = Device(device_group, device)
+            except Exception as ex:
+                if not conf.skip_discon:
+                    LOG.error("Do not skip disconnected device")
+                    raise ex
+                continue
+
             tracer = Tracer(lbaas_manager, device_manager)
 
             LOG.info(
@@ -677,7 +685,206 @@ def main():
 
             clean_device_level_cache(lbaas_manager, device_manager)
 
-    generate_rebuild_script(global_missing)
+        LOG.info("Audit different resources")
+        device_ids = binding_idx[group_id].keys()
+
+        diff_lbs = device_config_diff(
+            group_id, device_ids, lbaas_manager, tracer)
+
+    generate_rebuild_script(global_missing, diff_lbs)
+
+
+def device_config_diff(
+        group_id, device_ids, lbaas_manager, tracer):
+
+    # the shell of device
+    device_group = lbaas_manager.device_groups[group_id]
+    dev_mgrs = []
+
+    for dev_id in device_ids:
+        device_manager = None
+        device = lbaas_manager.devices[dev_id]
+
+        try:
+            device_manager = Device(device_group, device)
+        except Exception as ex:
+            if not conf.skip_discon:
+                raise ex
+
+        if _device_connected(device_manager):
+            dev_mgrs.append(device_manager)
+
+    if len(dev_mgrs) != 2:
+        LOG.warn("Cannot compare config diff, one of the HA device connection"
+                 " is not established.")
+        return
+
+    active_mgr, backup_mgr = identify_active_backup(dev_mgrs)
+
+    LOG.info(
+        "audit diff config "
+        "between active device %s and standby device: %s.",
+        active_mgr.device_name,
+        backup_mgr.device_name
+    )
+
+    # ac_config = active_mgr.get_dev_config_of("selfip")
+    # bp_config = backup_mgr.get_dev_config_of("route")
+
+    filepath = "/tmp/" + "diff-" + active_mgr.device["mgmt_ipv4"] + \
+        "-" + backup_mgr.device["mgmt_ipv4"]
+    diff = {}
+    diff_lbs = {}
+
+    # device_shared_net_config_diff(active_mgr, backup_mgr, diff)
+    device_loadbalancer_config_diff(active_mgr, backup_mgr, diff)
+    lbs = tracer.get_lbs_by_lbdiff(diff)
+    diff_lbs.update(lbs)
+
+    device_listener_config_diff(active_mgr, backup_mgr, diff)
+    lbs = tracer.get_lbs_by_lsdiff(diff)
+    diff_lbs.update(lbs)
+
+    device_pool_config_diff(active_mgr, backup_mgr, diff)
+    lbs = tracer.get_lbs_by_pldiff(diff)
+    diff_lbs.update(lbs)
+
+    device_monitor_config_diff(active_mgr, backup_mgr, diff)
+    lbs = tracer.get_lbs_by_mndiff(diff)
+    diff_lbs.update(lbs)
+
+    with open(filepath, "w") as f:
+        json.dump(diff, f, ensure_ascii=False, indent=4)
+
+    LOG.info("Auditor diff file %s has been created" % filepath)
+
+    return diff_lbs
+
+
+def identify_active_backup(dev_mgrs):
+    active = None
+    backup = None
+
+    for mgr in dev_mgrs:
+        role = mgr.get_device_ha_role()
+
+        if role == "active":
+            active = mgr
+        else:
+            backup = mgr
+
+    if not all([active, backup]):
+        raise Exception("Cannot identify active or backup devices")
+
+    return active, backup
+
+
+def device_shared_net_config_diff(active_mgr, backup_mgr, diff):
+
+    for resource_type in constants.SHARED_NET_RESOURCES:
+        ac_config, bp_config, df = None, None, {}
+
+        LOG.info(
+            "audit shared net: diff config of %s.", resource_type
+        )
+
+        try:
+            ac_config = active_mgr.get_dev_config_of(resource_type)
+            bp_config = backup_mgr.get_dev_config_of(resource_type)
+
+            df = utils.diff(ac_config, bp_config)
+            diff[resource_type] = df
+
+        except Exception as ex:
+            LOG.info(
+                "resource %s cannot get config from device, %s",
+                resource_type, ex
+            )
+
+
+def device_loadbalancer_config_diff(active_mgr, backup_mgr, diff):
+
+    for resource_type in constants.LOADBALANCER_RESOURCES:
+        ac_config, bp_config, df = None, None, {}
+
+        LOG.info(
+            "audit loadbalancer: diff config of %s.", resource_type
+        )
+
+        try:
+            ac_config = active_mgr.get_dev_config_of(resource_type)
+            bp_config = backup_mgr.get_dev_config_of(resource_type)
+            df = utils.diff(ac_config, bp_config)
+
+            diff[resource_type] = df
+        except Exception as ex:
+            LOG.info(
+                "resource %s cannot get config from device, %s",
+                resource_type, ex
+            )
+
+
+def device_listener_config_diff(active_mgr, backup_mgr, diff):
+
+    for resource_type in constants.LISTENER_RESOURCES:
+        ac_config, bp_config, df = None, None, {}
+
+        LOG.info(
+            "audit listener: diff config of %s.", resource_type
+        )
+
+        try:
+            ac_config = active_mgr.get_dev_config_of(resource_type)
+            bp_config = backup_mgr.get_dev_config_of(resource_type)
+            df = utils.diff(ac_config, bp_config)
+
+            diff[resource_type] = df
+        except Exception as ex:
+            LOG.info(
+                "resource %s cannot get config from device, %s",
+                resource_type, ex
+            )
+
+
+def device_pool_config_diff(active_mgr, backup_mgr, diff):
+    ac_config, bp_config, df = None, None, {}
+    LOG.info(
+        "audit pool and member diff config"
+    )
+
+    try:
+        ac_config = active_mgr.get_dev_config_of_pools()
+        bp_config = backup_mgr.get_dev_config_of_pools()
+    except Exception as ex:
+        LOG.info(
+            "resource pool/member cannot get config from device, %s",
+            ex
+        )
+
+    df = utils.diff(ac_config, bp_config)
+    diff["pool"] = df
+
+
+def device_monitor_config_diff(active_mgr, backup_mgr, diff):
+
+    for resource_type in constants.MONITOR_RESOURCES:
+        ac_config, bp_config, df = None, None, {}
+
+        LOG.info(
+            "audit monitor: diff config of %s", resource_type
+        )
+
+        try:
+            ac_config = active_mgr.get_dev_config_of(resource_type)
+            bp_config = backup_mgr.get_dev_config_of(resource_type)
+            df = utils.diff(ac_config, bp_config)
+
+            diff[resource_type] = df
+        except Exception as ex:
+            LOG.info(
+                "resource %s cannot get config from device, %s",
+                resource_type, ex
+            )
 
 
 if __name__ == "__main__":
