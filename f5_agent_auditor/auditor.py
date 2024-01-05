@@ -413,6 +413,114 @@ def missing_monitor(partition, lb_dicts, lbaas_manager, device_manager,
         )
 
 
+def check_missing_details(lbaas_manager, device_manager, tracer,
+                          current_partition, lbs, project_missing):
+
+    LOG.info(
+        "Start to gather netconf: Vlans, Routedomains, "
+        "Selfips, Gateways."
+    )
+    project_lb_nets, project_snat_nets = \
+        lbaas_manager.dev_agent_project_nets(lbs)
+    vlans, rds, selfips, gateways = \
+        lbaas_manager.dev_agent_project_netconf(
+            device_manager, project_lb_nets, project_snat_nets)
+
+    lbaas_manager.add_dev_pjt_cache(
+        current_partition, "vlans", vlans.keys())
+    lbaas_manager.add_dev_pjt_cache(
+        current_partition, "rds", rds.keys())
+    lbaas_manager.add_dev_pjt_cache(
+        current_partition, "selfips", selfips.keys())
+    lbaas_manager.add_dev_pjt_cache(
+        current_partition, "gateways", gateways.keys())
+
+    lb_dicts = lbaas_manager.get_lbs_dicts(lbs)
+    lbaas_manager.set_agt_pjt_lbs_cache(lb_dicts)
+
+    missing_vlan(current_partition, vlans, lb_dicts,
+                 device_manager, tracer, project_missing)
+
+    missing_rd(current_partition, rds, lb_dicts,
+               device_manager, tracer, project_missing)
+
+    missing_gateway(current_partition, gateways, lb_dicts,
+                    device_manager, tracer, project_missing)
+
+    missing_selfip(current_partition, selfips, lb_dicts,
+                   device_manager, tracer, project_missing)
+
+    missing_snatpool(current_partition, lb_dicts,
+                     lbaas_manager, device_manager,
+                     tracer, project_missing)
+
+    missing_loadbalancer(current_partition, lb_dicts,
+                         lbaas_manager, device_manager, tracer,
+                         project_missing)
+
+    missing_listener(current_partition, lb_dicts,
+                     lbaas_manager, device_manager,
+                     tracer, project_missing)
+
+    missing_l7rule(current_partition, lb_dicts, lbaas_manager,
+                   device_manager, tracer, project_missing)
+
+    missing_pool(current_partition, lb_dicts, lbaas_manager,
+                 device_manager, tracer, project_missing)
+
+    missing_member(current_partition, lb_dicts, lbaas_manager,
+                   device_manager, tracer, project_missing)
+
+    missing_monitor(current_partition, lb_dicts, lbaas_manager,
+                    device_manager, tracer, project_missing)
+
+
+def check_unknown_details(device_manager, lbaas_manager,
+                          current_dev_unknown):
+
+    device_cache = device_manager.dev_ptn_cache
+    lbaas_cache = lbaas_manager.dev_pjt_cache
+
+    for key, dev_values in device_cache.items():
+        unknown = []
+
+        if key == "tenants":
+            lbaas_values = lbaas_cache.get(key, [])
+            unknown = set(dev_values) - set(lbaas_values)
+            if unknown:
+                current_dev_unknown["tenants"] = list(unknown)
+            continue
+
+        partition = key
+        dev_res = dev_values
+        lbaas_res = lbaas_cache.get(partition, {})
+
+        if partition not in current_dev_unknown:
+            current_dev_unknown[partition] = {}
+
+        current_unknown = current_dev_unknown.get(partition)
+
+        for res_type, res in dev_res.items():
+            tmp_res = lbaas_res.get(res_type, [])
+            unknown = set(res) - set(tmp_res)
+            if unknown:
+                current_unknown[res_type] = list(unknown)
+
+
+def generate_rebuild_script(global_missing):
+    LOG.info("Initiate Rebuilder with keystone admin file %s" %
+             conf.rcfile_path)
+    rebuilder = Rebuilder(global_missing, conf.rcfile_path)
+
+    bash_script = rebuilder.generate_bash()
+    if bash_script:
+        LOG.info("Create rebuild bash script %s" % bash_script)
+
+    if bash_script and conf.rebuild:
+        LOG.info("Run rebuild bash script %s" % bash_script)
+        rebuilder.run_bash(bash_script)
+
+
 BOLD = '\033[1m'
 END = '\033[0m'
 
@@ -531,63 +639,9 @@ def main():
                         )
                     )
 
-                    LOG.info(
-                        "Start to gather netconf: Vlans, Routedomains, "
-                        "Selfips, Gateways."
-                    )
-                    project_lb_nets, project_snat_nets = \
-                        lbaas_manager.dev_agent_project_nets(lbs)
-                    vlans, rds, selfips, gateways = \
-                        lbaas_manager.dev_agent_project_netconf(
-                            device_manager, project_lb_nets, project_snat_nets)
-
-                    lbaas_manager.add_dev_pjt_cache(
-                        current_partition, "vlans", vlans.keys())
-                    lbaas_manager.add_dev_pjt_cache(
-                        current_partition, "rds", rds.keys())
-                    lbaas_manager.add_dev_pjt_cache(
-                        current_partition, "selfips", selfips.keys())
-                    lbaas_manager.add_dev_pjt_cache(
-                        current_partition, "gateways", gateways.keys())
-
-                    lb_dicts = lbaas_manager.get_lbs_dicts(lbs)
-                    lbaas_manager.set_agt_pjt_lbs_cache(lb_dicts)
-
-                    missing_vlan(current_partition, vlans, lb_dicts,
-                                 device_manager, tracer, project_missing)
-
-                    missing_rd(current_partition, rds, lb_dicts,
-                               device_manager, tracer, project_missing)
-
-                    missing_gateway(current_partition, gateways, lb_dicts,
-                                    device_manager, tracer, project_missing)
-
-                    missing_selfip(current_partition, selfips, lb_dicts,
-                                   device_manager, tracer, project_missing)
-
-                    missing_snatpool(current_partition, lb_dicts,
-                                     lbaas_manager, device_manager,
-                                     tracer, project_missing)
-
-                    missing_loadbalancer(current_partition, lb_dicts,
-                                         lbaas_manager, device_manager, tracer,
-                                         project_missing)
-
-                    missing_listener(current_partition, lb_dicts,
-                                     lbaas_manager, device_manager,
-                                     tracer, project_missing)
-
-                    missing_l7rule(current_partition, lb_dicts, lbaas_manager,
-                                   device_manager, tracer, project_missing)
-
-                    missing_pool(current_partition, lb_dicts, lbaas_manager,
-                                 device_manager, tracer, project_missing)
-
-                    missing_member(current_partition, lb_dicts, lbaas_manager,
-                                   device_manager, tracer, project_missing)
-
-                    missing_monitor(current_partition, lb_dicts, lbaas_manager,
-                                    device_manager, tracer, project_missing)
+                    check_missing_details(
+                        lbaas_manager, device_manager, tracer,
+                        current_partition, lbs, project_missing)
 
                     lbaas_manager.clean_agt_pjt_lbs_cache()
                     lbaas_manager.clean_agt_pjt_listeners_cache()
@@ -602,9 +656,8 @@ def main():
 
             global_missing[device_id] = current_dev_missing
 
-            LOG.info("Audit unknow resources")
+            LOG.info("Audit unknown resources")
 
-            device_host = device_manager.device["mgmt_ipv4"]
             LOG.debug(
                 "Found device %s resources: device resource mapping: %s" %
                 (device_host, pformat(device_manager.dev_ptn_cache)))
@@ -613,36 +666,9 @@ def main():
                 (device_host, pformat(lbaas_manager.dev_pjt_cache)))
 
             current_dev_unknown = {}
+            check_unknown_details(device_manager, lbaas_manager,
+                                  current_dev_unknown)
 
-            device_cache = device_manager.dev_ptn_cache
-            lbaas_cache = lbaas_manager.dev_pjt_cache
-
-            for key, dev_values in device_cache.items():
-                unknown = []
-
-                if key == "tenants":
-                    lbaas_values = lbaas_cache.get(key, [])
-                    unknown = set(dev_values) - set(lbaas_values)
-                    if unknown:
-                        current_dev_unknown["tenants"] = list(unknown)
-                    continue
-
-                partition = key
-                dev_res = dev_values
-                lbaas_res = lbaas_cache.get(partition, {})
-
-                if partition not in current_dev_unknown:
-                    current_dev_unknown[partition] = {}
-
-                current_unknown = current_dev_unknown.get(partition)
-
-                for res_type, res in dev_res.items():
-                    tmp_res = lbaas_res.get(res_type, [])
-                    unknown = set(res) - set(tmp_res)
-                    if unknown:
-                        current_unknown[res_type] = list(unknown)
-
-            device_host = device_manager.device["mgmt_ipv4"]
             filepath = "/tmp/" + "unknown_" + utils.timestamp_filename(
                 device_host)
             with open(filepath, "w") as f:
@@ -651,17 +677,7 @@ def main():
 
             clean_device_level_cache(lbaas_manager, device_manager)
 
-    LOG.info("Initiate Rebuilder with keystone admin file %s" %
-             conf.rcfile_path)
-    rebuilder = Rebuilder(global_missing, conf.rcfile_path)
-
-    bash_script = rebuilder.generate_bash()
-    if bash_script:
-        LOG.info("Create rebuild bash script %s" % bash_script)
-
-    if bash_script and conf.rebuild:
-        LOG.info("Run rebuild bash script %s" % bash_script)
-        rebuilder.run_bash(bash_script)
+    generate_rebuild_script(global_missing)
 
 
 if __name__ == "__main__":
